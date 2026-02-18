@@ -19,6 +19,7 @@ import type {
   GatewayFrame,
   GatewayResponse,
   GatewayEvent,
+  GatewaySession,
 } from "../types";
 
 type EventHandler = (event: GatewayEvent) => void;
@@ -213,6 +214,13 @@ export class GatewayClient {
   /** Delete an agent from the gateway */
   async deleteAgent(agentId: string): Promise<unknown> {
     return this.request("agents.delete", { agentId });
+  }
+
+  /** List all active sessions on the gateway */
+  async listSessions(): Promise<GatewaySession[]> {
+    const result = await this.request("sessions.list");
+    const data = result as { sessions?: GatewaySession[] };
+    return data.sessions ?? [];
   }
 
   // ─── Private ───

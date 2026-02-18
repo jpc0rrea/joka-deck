@@ -51,9 +51,17 @@ function buildDefaultAgents(count: number): AgentConfig[] {
 
 function getGatewayConfig() {
   const params = new URLSearchParams(window.location.search);
+  
+  // Detect if accessing via Tailscale and auto-configure gateway URL
+  const isTailscale = window.location.hostname.includes('.ts.net');
+  const tailscaleGateway = isTailscale 
+    ? `wss://${window.location.hostname.replace(':8443', '')}`
+    : null;
+  
   let gatewayUrl =
     params.get("gateway") ||
     import.meta.env.VITE_GATEWAY_URL ||
+    tailscaleGateway ||
     "ws://127.0.0.1:18789";
 
   // Resolve relative paths (e.g. "/ws") to full WebSocket URLs

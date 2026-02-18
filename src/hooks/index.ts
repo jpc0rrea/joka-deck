@@ -1,6 +1,6 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useDeckStore } from "../lib/store";
-import type { AgentConfig, DeckConfig } from "../types";
+import type { AgentConfig, DeckConfig, GatewaySession } from "../types";
 
 /**
  * Initialize the deck with config. Call once at app root.

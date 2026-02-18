@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type {
   AgentConfig,
   AgentSession,
@@ -6,9 +7,14 @@ import type {
   ChatMessage,
   DeckConfig,
   GatewayEvent,
+  GatewaySession,
   SessionUsage,
 } from "../types";
 import { GatewayClient } from "./gateway-client";
+
+// ─── Storage Keys ───
+
+const STORAGE_KEY = "openclaw-deck-state";
 
 // ─── Default Config ───
 
@@ -26,6 +32,11 @@ interface DeckStore {
   gatewayConnected: boolean;
   columnOrder: string[];
   client: GatewayClient | null;
+  
+  // Subagent monitoring
+  gatewaySessions: GatewaySession[];
+  subagentPollingEnabled: boolean;
+  lastSubagentPoll: number | null;
 
   // Actions
   initialize: (config: Partial<DeckConfig>) => void;
@@ -40,6 +51,11 @@ interface DeckStore {
   createAgentOnGateway: (agent: AgentConfig) => Promise<void>;
   deleteAgentOnGateway: (agentId: string) => Promise<void>;
   disconnect: () => void;
+  
+  // Subagent actions
+  refreshGatewaySessions: () => Promise<void>;
+  setSubagentPolling: (enabled: boolean) => void;
+  clearMessageHistory: (agentId: string) => void;
 }
 
 // ─── Helpers ───
@@ -61,20 +77,60 @@ function makeId(): string {
 
 // ─── Store ───
 
+// Helper to load persisted messages
+function loadPersistedMessages(): Record<string, ChatMessage[]> {
+  try {
+    const stored = localStorage.getItem(`${STORAGE_KEY}-messages`);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return {};
+}
+
+// Helper to save messages
+function saveMessages(sessions: Record<string, AgentSession>) {
+  try {
+    const messages: Record<string, ChatMessage[]> = {};
+    for (const [id, session] of Object.entries(sessions)) {
+      // Only persist non-streaming messages
+      messages[id] = session.messages.filter(m => !m.streaming);
+    }
+    localStorage.setItem(`${STORAGE_KEY}-messages`, JSON.stringify(messages));
+  } catch {
+    // ignore persistence failures
+  }
+}
+
 export const useDeckStore = create<DeckStore>((set, get) => ({
   config: DEFAULT_CONFIG,
   sessions: {},
   gatewayConnected: false,
   columnOrder: [],
   client: null,
+  
+  // Subagent monitoring
+  gatewaySessions: [],
+  subagentPollingEnabled: true,
+  lastSubagentPoll: null,
 
   initialize: (partialConfig) => {
     const config = { ...DEFAULT_CONFIG, ...partialConfig };
     const sessions: Record<string, AgentSession> = {};
     const columnOrder: string[] = [];
+    
+    // Load persisted messages
+    const persistedMessages = loadPersistedMessages();
 
     for (const agent of config.agents) {
-      sessions[agent.id] = createSession(agent.id);
+      const session = createSession(agent.id);
+      // Restore persisted messages if available
+      if (persistedMessages[agent.id]) {
+        session.messages = persistedMessages[agent.id];
+      }
+      sessions[agent.id] = session;
       columnOrder.push(agent.id);
     }
 
@@ -201,15 +257,19 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
   },
 
   setAgentStatus: (agentId, status) => {
-    set((state) => ({
-      sessions: {
-        ...state.sessions,
-        [agentId]: {
-          ...state.sessions[agentId],
-          status,
+    set((state) => {
+      const session = state.sessions[agentId];
+      if (!session) return state; // Ignore events for unknown agents
+      return {
+        sessions: {
+          ...state.sessions,
+          [agentId]: {
+            ...session,
+            status,
+          },
         },
-      },
-    }));
+      };
+    });
   },
 
   appendMessageChunk: (agentId, runId, chunk) => {
@@ -419,7 +479,63 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
   },
 
   disconnect: () => {
+    // Save messages before disconnecting
+    saveMessages(get().sessions);
     get().client?.disconnect();
     set({ gatewayConnected: false, client: null });
   },
+  
+  // Subagent actions
+  refreshGatewaySessions: async () => {
+    const { client } = get();
+    if (!client?.connected) return;
+    
+    try {
+      const gatewaySessions = await client.listSessions();
+      set({ 
+        gatewaySessions, 
+        lastSubagentPoll: Date.now() 
+      });
+    } catch (err) {
+      console.warn("[DeckStore] Failed to fetch gateway sessions:", err);
+    }
+  },
+  
+  setSubagentPolling: (enabled: boolean) => {
+    set({ subagentPollingEnabled: enabled });
+  },
+  
+  clearMessageHistory: (agentId: string) => {
+    set((state) => {
+      const session = state.sessions[agentId];
+      if (!session) return state;
+      
+      const newSessions = {
+        ...state.sessions,
+        [agentId]: {
+          ...session,
+          messages: [],
+          tokenCount: 0,
+          usage: undefined,
+        },
+      };
+      
+      // Persist the cleared state
+      saveMessages(newSessions);
+      
+      return { sessions: newSessions };
+    });
+  },
 }));
+
+// Auto-save messages on changes (debounced)
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+useDeckStore.subscribe((state, prevState) => {
+  // Only save if messages changed
+  if (state.sessions !== prevState.sessions) {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+      saveMessages(state.sessions);
+    }, 1000);
+  }
+});

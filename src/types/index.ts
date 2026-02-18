@@ -125,3 +125,28 @@ export interface DeckState {
   /** Column ordering (agent IDs) */
   columnOrder: string[];
 }
+
+// ─── Gateway Session Types ───
+
+export interface GatewaySession {
+  /** Session key (e.g., "agent:main:subagent:abc123") */
+  key: string;
+  /** Agent ID running this session */
+  agentId: string;
+  /** Session label (if any) */
+  label?: string;
+  /** Whether session is currently active */
+  active: boolean;
+  /** Creation timestamp */
+  createdAt: number;
+  /** Last activity timestamp */
+  lastActivityAt: number;
+  /** Parent session key (for subagents) */
+  parentSession?: string;
+  /** Current status */
+  status: "idle" | "running" | "thinking" | "streaming" | "completed" | "error";
+  /** Token usage */
+  usage?: SessionUsage;
+  /** Model being used */
+  model?: string;
+}
