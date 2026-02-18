@@ -179,3 +179,60 @@ export function useSubagentStats() {
     };
   }, [gatewaySessions]);
 }
+
+/**
+ * Get available subagents for delegation (not already assigned to another column).
+ */
+export function useAvailableSubagents(currentColumnId: string) {
+  const gatewaySessions = useDeckStore((s) => s.gatewaySessions);
+  const sessions = useDeckStore((s) => s.sessions);
+  
+  return useMemo(() => {
+    // Get all assigned subagent keys
+    const assignedKeys = new Set<string>();
+    for (const [columnId, session] of Object.entries(sessions)) {
+      if (columnId !== currentColumnId && session.assignedSubagent) {
+        assignedKeys.add(session.assignedSubagent);
+      }
+    }
+    
+    // Filter to subagents that are active and not assigned elsewhere
+    const subagents = gatewaySessions.filter(s => {
+      const isSubagent = s.key.includes(":subagent:") || s.parentSession;
+      const isActive = s.active || s.status === "running" || s.status === "streaming";
+      const notAssigned = !assignedKeys.has(s.key);
+      return isSubagent && isActive && notAssigned;
+    });
+    
+    // Sort by activity (most recent first)
+    subagents.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    
+    return subagents;
+  }, [gatewaySessions, sessions, currentColumnId]);
+}
+
+/**
+ * Hook for column delegation actions.
+ */
+export function useColumnDelegation(columnId: string) {
+  const assignSubagentToColumn = useDeckStore((s) => s.assignSubagentToColumn);
+  const unassignSubagentFromColumn = useDeckStore((s) => s.unassignSubagentFromColumn);
+  const session = useDeckStore((s) => s.sessions[columnId]);
+  
+  const assign = useCallback(
+    (sessionKey: string) => assignSubagentToColumn(columnId, sessionKey),
+    [columnId, assignSubagentToColumn]
+  );
+  
+  const unassign = useCallback(
+    () => unassignSubagentFromColumn(columnId),
+    [columnId, unassignSubagentFromColumn]
+  );
+  
+  return {
+    mode: session?.mode ?? 'chat',
+    assignedSubagent: session?.assignedSubagent,
+    assign,
+    unassign,
+  };
+}

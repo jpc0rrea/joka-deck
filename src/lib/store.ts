@@ -56,6 +56,11 @@ interface DeckStore {
   refreshGatewaySessions: () => Promise<void>;
   setSubagentPolling: (enabled: boolean) => void;
   clearMessageHistory: (agentId: string) => void;
+  
+  // Delegation actions
+  assignSubagentToColumn: (columnId: string, sessionKey: string) => void;
+  unassignSubagentFromColumn: (columnId: string) => void;
+  getColumnBySubagent: (sessionKey: string) => string | undefined;
 }
 
 // ─── Helpers ───
@@ -68,6 +73,7 @@ function createSession(agentId: string): AgentSession {
     activeRunId: null,
     tokenCount: 0,
     connected: false,
+    mode: 'chat',
   };
 }
 
@@ -82,10 +88,13 @@ function loadPersistedMessages(): Record<string, ChatMessage[]> {
   try {
     const stored = localStorage.getItem(`${STORAGE_KEY}-messages`);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      console.log("[DeckStore] Loaded persisted messages:", Object.keys(parsed).map(k => `${k}: ${parsed[k]?.length ?? 0} msgs`));
+      return parsed;
     }
-  } catch {
-    // ignore parse errors
+    console.log("[DeckStore] No persisted messages found");
+  } catch (err) {
+    console.warn("[DeckStore] Failed to load persisted messages:", err);
   }
   return {};
 }
@@ -99,8 +108,9 @@ function saveMessages(sessions: Record<string, AgentSession>) {
       messages[id] = session.messages.filter(m => !m.streaming);
     }
     localStorage.setItem(`${STORAGE_KEY}-messages`, JSON.stringify(messages));
-  } catch {
-    // ignore persistence failures
+    console.log("[DeckStore] Saved messages:", Object.keys(messages).map(k => `${k}: ${messages[k]?.length ?? 0} msgs`));
+  } catch (err) {
+    console.warn("[DeckStore] Failed to save messages:", err);
   }
 }
 
@@ -335,9 +345,47 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         const data = payload.data as Record<string, unknown> | undefined;
         const sessionKey = payload.sessionKey as string | undefined;
 
-        // Extract column ID from sessionKey "agent:main:<columnId>"
-        const parts = sessionKey?.split(":") ?? [];
-        const agentId = parts[2] ?? parts[1] ?? "main";
+        // Check if this is a subagent event that should be routed to a column
+        const delegatedColumn = sessionKey ? get().getColumnBySubagent(sessionKey) : undefined;
+        
+        // Extract column ID from sessionKey "agent:main:<columnId>" or use delegated column
+        let agentId: string;
+        if (delegatedColumn) {
+          // Route subagent events to the column watching it
+          agentId = delegatedColumn;
+        } else {
+          const parts = sessionKey?.split(":") ?? [];
+          agentId = parts[2] ?? parts[1] ?? "main";
+        }
+
+        // For delegated columns, ensure we have a message placeholder for streaming
+        if (delegatedColumn) {
+          const session = get().sessions[agentId];
+          const hasRunMessage = session?.messages.some(m => m.runId === runId);
+          
+          if (!hasRunMessage && stream === "assistant") {
+            // Create placeholder for subagent streaming
+            const assistantMsg: ChatMessage = {
+              id: makeId(),
+              role: "assistant",
+              text: "",
+              timestamp: Date.now(),
+              streaming: true,
+              runId,
+            };
+            
+            set((state) => ({
+              sessions: {
+                ...state.sessions,
+                [agentId]: {
+                  ...state.sessions[agentId],
+                  messages: [...state.sessions[agentId].messages, assistantMsg],
+                  activeRunId: runId,
+                },
+              },
+            }));
+          }
+        }
 
         if (stream === "assistant" && data?.delta) {
           get().appendMessageChunk(agentId, runId, data.delta as string);
@@ -526,6 +574,73 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
       return { sessions: newSessions };
     });
   },
+  
+  // Delegation actions
+  assignSubagentToColumn: (columnId: string, sessionKey: string) => {
+    set((state) => {
+      const session = state.sessions[columnId];
+      if (!session) return state;
+      
+      // Add a system message indicating delegation started
+      const delegationMsg: ChatMessage = {
+        id: makeId(),
+        role: "system",
+        text: `📡 Watching subagent: ${sessionKey.split(':').pop()?.slice(0, 8) || sessionKey}`,
+        timestamp: Date.now(),
+      };
+      
+      return {
+        sessions: {
+          ...state.sessions,
+          [columnId]: {
+            ...session,
+            assignedSubagent: sessionKey,
+            mode: 'delegation',
+            messages: [...session.messages, delegationMsg],
+            status: 'idle',
+          },
+        },
+      };
+    });
+  },
+  
+  unassignSubagentFromColumn: (columnId: string) => {
+    set((state) => {
+      const session = state.sessions[columnId];
+      if (!session) return state;
+      
+      // Add a system message indicating delegation ended
+      const unassignMsg: ChatMessage = {
+        id: makeId(),
+        role: "system",
+        text: `📡 Stopped watching subagent`,
+        timestamp: Date.now(),
+      };
+      
+      return {
+        sessions: {
+          ...state.sessions,
+          [columnId]: {
+            ...session,
+            assignedSubagent: undefined,
+            mode: 'chat',
+            messages: [...session.messages, unassignMsg],
+            status: 'idle',
+          },
+        },
+      };
+    });
+  },
+  
+  getColumnBySubagent: (sessionKey: string) => {
+    const { sessions } = get();
+    for (const [columnId, session] of Object.entries(sessions)) {
+      if (session.assignedSubagent === sessionKey) {
+        return columnId;
+      }
+    }
+    return undefined;
+  },
 }));
 
 // Auto-save messages on changes (debounced)
@@ -539,3 +654,27 @@ useDeckStore.subscribe((state, prevState) => {
     }, 1000);
   }
 });
+
+// Save immediately before page unload (F5, close tab, etc.)
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", () => {
+    // Cancel pending debounced save
+    if (saveTimeout) clearTimeout(saveTimeout);
+    // Save immediately
+    const state = useDeckStore.getState();
+    if (Object.keys(state.sessions).length > 0) {
+      saveMessages(state.sessions);
+    }
+  });
+
+  // Also save when tab becomes hidden (user switching tabs before closing browser)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      if (saveTimeout) clearTimeout(saveTimeout);
+      const state = useDeckStore.getState();
+      if (Object.keys(state.sessions).length > 0) {
+        saveMessages(state.sessions);
+      }
+    }
+  });
+}

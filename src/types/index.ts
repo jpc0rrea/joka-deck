@@ -102,6 +102,10 @@ export interface AgentSession {
   connected: boolean;
   /** Real usage data from gateway */
   usage?: SessionUsage;
+  /** Assigned subagent session key (for delegation mode) */
+  assignedSubagent?: string;
+  /** Mode: 'chat' for normal input, 'delegation' when watching a subagent */
+  mode: 'chat' | 'delegation';
 }
 
 // ─── Connection Config ───
