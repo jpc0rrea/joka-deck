@@ -96,3 +96,86 @@ export function useDeckStats() {
     waitingForUser,
   };
 }
+
+/**
+ * Monitor subagents with polling.
+ * Polls the gateway for active sessions every `intervalMs` (default 5000ms).
+ */
+export function useSubagentMonitor(intervalMs: number = 5000) {
+  const gatewaySessions = useDeckStore((s) => s.gatewaySessions);
+  const pollingEnabled = useDeckStore((s) => s.subagentPollingEnabled);
+  const gatewayConnected = useDeckStore((s) => s.gatewayConnected);
+  const refreshGatewaySessions = useDeckStore((s) => s.refreshGatewaySessions);
+  const lastPoll = useDeckStore((s) => s.lastSubagentPoll);
+
+  useEffect(() => {
+    if (!pollingEnabled || !gatewayConnected) return;
+
+    // Initial fetch
+    refreshGatewaySessions();
+
+    // Set up polling
+    const timer = setInterval(() => {
+      refreshGatewaySessions();
+    }, intervalMs);
+
+    return () => clearInterval(timer);
+  }, [pollingEnabled, gatewayConnected, intervalMs, refreshGatewaySessions]);
+
+  // Filter and categorize sessions
+  const categorized = useMemo(() => {
+    const subagents: GatewaySession[] = [];
+    const mainSessions: GatewaySession[] = [];
+    
+    for (const session of gatewaySessions) {
+      // Subagents have keys like "agent:main:subagent:uuid"
+      if (session.key.includes(":subagent:") || session.parentSession) {
+        subagents.push(session);
+      } else {
+        mainSessions.push(session);
+      }
+    }
+    
+    // Sort by activity (most recent first)
+    subagents.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    mainSessions.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    
+    return {
+      subagents,
+      mainSessions,
+      all: gatewaySessions,
+      activeSubagents: subagents.filter(s => s.active || s.status === "running" || s.status === "streaming"),
+      completedSubagents: subagents.filter(s => !s.active && s.status !== "running" && s.status !== "streaming"),
+    };
+  }, [gatewaySessions]);
+
+  return {
+    ...categorized,
+    lastPoll,
+    pollingEnabled,
+    refresh: refreshGatewaySessions,
+  };
+}
+
+/**
+ * Get subagent stats for the TopBar.
+ */
+export function useSubagentStats() {
+  const gatewaySessions = useDeckStore((s) => s.gatewaySessions);
+  
+  return useMemo(() => {
+    const subagents = gatewaySessions.filter(
+      s => s.key.includes(":subagent:") || s.parentSession
+    );
+    
+    const active = subagents.filter(
+      s => s.active || s.status === "running" || s.status === "streaming"
+    ).length;
+    
+    return {
+      total: subagents.length,
+      active,
+      idle: subagents.length - active,
+    };
+  }, [gatewaySessions]);
+}

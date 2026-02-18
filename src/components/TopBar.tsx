@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useDeckStats } from "../hooks";
+import { useDeckStats, useSubagentStats } from "../hooks";
 import styles from "./TopBar.module.css";
 
-const TABS = ["All Agents", "Active", "Queued", "Completed"] as const;
+const TABS = ["All Agents", "Active", "Subagents", "Completed"] as const;
 
 export function TopBar({
   activeTab,
@@ -14,6 +14,7 @@ export function TopBar({
   onAddAgent: () => void;
 }) {
   const stats = useDeckStats();
+  const subagentStats = useSubagentStats();
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -44,6 +45,11 @@ export function TopBar({
             )}
             {tab === "Active" && stats.active > 0 && (
               <span className={styles.tabCount}>{stats.active}</span>
+            )}
+            {tab === "Subagents" && subagentStats.total > 0 && (
+              <span className={styles.tabCount}>
+                {subagentStats.active > 0 ? `${subagentStats.active}/${subagentStats.total}` : subagentStats.total}
+              </span>
             )}
           </button>
         ))}

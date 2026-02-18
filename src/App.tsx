@@ -5,6 +5,7 @@ import { AgentColumn } from "./components/AgentColumn";
 import { TopBar } from "./components/TopBar";
 import { StatusBar } from "./components/StatusBar";
 import { AddAgentModal } from "./components/AddAgentModal";
+import { SubagentList } from "./components/SubagentList";
 import type { AgentConfig } from "./types";
 import "./App.css";
 
@@ -125,11 +126,15 @@ export default function App() {
         onAddAgent={() => setShowAddModal(true)}
       />
 
-      <div className="deck-columns">
-        {columnOrder.map((agentId, index) => (
-          <AgentColumn key={agentId} agentId={agentId} columnIndex={index} />
-        ))}
-      </div>
+      {activeTab === "Subagents" ? (
+        <SubagentList />
+      ) : (
+        <div className="deck-columns">
+          {columnOrder.map((agentId, index) => (
+            <AgentColumn key={agentId} agentId={agentId} columnIndex={index} />
+          ))}
+        </div>
+      )}
 
       <StatusBar />
 
