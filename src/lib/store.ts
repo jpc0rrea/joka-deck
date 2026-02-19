@@ -603,51 +603,61 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         
         const text = (message.text as string) || (message.content as string) || "";
         const role = (message.role as ChatMessage["role"]) || "assistant";
+        const msgRunId = message.runId as string | undefined;
         
-        // Skip empty messages — these are often duplicate streaming events
-        // that the "agent" handler already processes with proper delta accumulation
-        if (!text.trim()) break;
-        
-        const chatMsg: ChatMessage = {
-          id: (message.id as string) || makeId(),
-          role,
-          text,
-          timestamp: typeof message.timestamp === "number" 
-            ? message.timestamp 
-            : typeof message.timestamp === "string"
-              ? new Date(message.timestamp).getTime()
-              : Date.now(),
-          streaming: (message.streaming as boolean) || false,
-          runId: message.runId as string | undefined,
-        };
+        // Skip empty assistant messages — these are streaming placeholders
+        // that the "agent" event handler already manages via delta accumulation
+        if (!text.trim() && role === "assistant") break;
         
         set((state) => {
           const existing = state.subagentMessages[sessionKey] || [];
           
-          // If message has an ID and we already have it, update it
-          const existingIdx = existing.findIndex(m => m.id === chatMsg.id);
-          
-          // Also check if there's already a streaming message with the same runId
-          // from the "agent" event handler — avoid duplicating content
-          const hasStreamingForRun = chatMsg.runId && 
-            existing.some(m => m.runId === chatMsg.runId);
-          
-          let updated: ChatMessage[];
-          if (existingIdx >= 0) {
-            // Update existing message
-            updated = [...existing];
-            updated[existingIdx] = chatMsg;
-          } else if (hasStreamingForRun && role === "assistant") {
-            // Skip — the "agent" handler is already tracking this assistant message via streaming
-            return {};
-          } else {
-            updated = [...existing, chatMsg];
+          // If there's already ANY streaming assistant message for this session
+          // (from the "agent" event handler), skip duplicate assistant chat events.
+          // The "agent" handler does proper delta accumulation; "chat" events for
+          // assistant messages are redundant and create ghost bubbles.
+          if (role === "assistant") {
+            // Match by runId if available
+            if (msgRunId && existing.some(m => m.runId === msgRunId)) {
+              return {};
+            }
+            // Match by checking if there's an active streaming message
+            if (existing.some(m => m.role === "assistant" && m.streaming)) {
+              return {};
+            }
           }
           
+          const chatMsg: ChatMessage = {
+            id: (message.id as string) || makeId(),
+            role,
+            text,
+            timestamp: typeof message.timestamp === "number" 
+              ? message.timestamp 
+              : typeof message.timestamp === "string"
+                ? new Date(message.timestamp).getTime()
+                : Date.now(),
+            streaming: false,
+            runId: msgRunId,
+          };
+          
+          // Deduplicate by message ID
+          const existingIdx = chatMsg.id ? existing.findIndex(m => m.id === chatMsg.id) : -1;
+          if (existingIdx >= 0) {
+            const updated = [...existing];
+            updated[existingIdx] = chatMsg;
+            return {
+              subagentMessages: {
+                ...state.subagentMessages,
+                [sessionKey]: updated,
+              },
+            };
+          }
+          
+          // New message (typically user messages) — add it
           return {
             subagentMessages: {
               ...state.subagentMessages,
-              [sessionKey]: updated,
+              [sessionKey]: [...existing, chatMsg],
             },
           };
         });
