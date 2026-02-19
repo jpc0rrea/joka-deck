@@ -366,6 +366,63 @@
   margin-left: auto;
 }
 
+/* ─── Input Row ─── */
+.inputRow {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  padding: 8px 12px;
+}
+
+.inputField {
+  flex: 1;
+  background: rgba(167, 139, 250, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-family: "JetBrains Mono", monospace;
+  padding: 6px 10px;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.inputField:focus {
+  border-color: rgba(167, 139, 250, 0.4);
+}
+
+.inputField::placeholder {
+  color: rgba(167, 139, 250, 0.3);
+}
+
+.sendBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  background: rgba(167, 139, 250, 0.08);
+  color: rgba(167, 139, 250, 0.5);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.sendBtn:not(:disabled):hover {
+  background: rgba(167, 139, 250, 0.3);
+  color: #fff;
+}
+
+.sendBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 /* ─── Streaming indicator bar ─── */
 .streamingBar {
   position: absolute;

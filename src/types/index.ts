@@ -108,6 +108,11 @@ export interface AgentSession {
   mode: 'chat' | 'delegation';
 }
 
+// ─── Subagent Chat Types ───
+
+/** Stored messages for subagent sessions, keyed by sessionKey */
+export type SubagentMessages = Record<string, ChatMessage[]>;
+
 // ─── Connection Config ───
 
 export interface DeckConfig {

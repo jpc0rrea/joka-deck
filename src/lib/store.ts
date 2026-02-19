@@ -9,6 +9,7 @@ import type {
   GatewayEvent,
   GatewaySession,
   SessionUsage,
+  SubagentMessages,
 } from "../types";
 import { GatewayClient } from "./gateway-client";
 
@@ -44,6 +45,9 @@ interface DeckStore {
   
   // Subagent columns
   subagentColumnOrder: string[];
+  
+  // Subagent chat messages (keyed by sessionKey)
+  subagentMessages: SubagentMessages;
 
   // Actions
   initialize: (config: Partial<DeckConfig>) => void;
@@ -76,6 +80,10 @@ interface DeckStore {
   // Subagent column actions
   addSubagentColumn: (sessionKey: string) => void;
   removeSubagentColumn: (sessionKey: string) => void;
+  
+  // Subagent messaging
+  getSubagentMessages: (sessionKey: string) => ChatMessage[];
+  sendSubagentMessage: (sessionKey: string, text: string) => Promise<void>;
 }
 
 // ─── Helpers ───
@@ -147,6 +155,9 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
   
   // Subagent columns
   subagentColumnOrder: [],
+  
+  // Subagent chat messages
+  subagentMessages: {},
 
   initialize: (partialConfig) => {
     const config = { ...DEFAULT_CONFIG, ...partialConfig };
@@ -373,6 +384,59 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         const stream = payload.stream as string | undefined;
         const data = payload.data as Record<string, unknown> | undefined;
         const sessionKey = payload.sessionKey as string | undefined;
+        
+        // ── Capture subagent streaming into subagentMessages ──
+        const isSubagentSession = sessionKey?.includes(":subagent:");
+        if (isSubagentSession && sessionKey) {
+          if (stream === "assistant" && data?.delta) {
+            // Append delta to subagent messages
+            set((state) => {
+              const existing = state.subagentMessages[sessionKey] || [];
+              // Find or create a streaming message for this runId
+              const runMsgIdx = existing.findIndex(m => m.runId === runId && m.streaming);
+              let updated: ChatMessage[];
+              if (runMsgIdx >= 0) {
+                updated = [...existing];
+                updated[runMsgIdx] = {
+                  ...updated[runMsgIdx],
+                  text: updated[runMsgIdx].text + (data.delta as string),
+                };
+              } else {
+                updated = [...existing, {
+                  id: makeId(),
+                  role: "assistant",
+                  text: data.delta as string,
+                  timestamp: Date.now(),
+                  streaming: true,
+                  runId,
+                }];
+              }
+              return {
+                subagentMessages: {
+                  ...state.subagentMessages,
+                  [sessionKey]: updated,
+                },
+              };
+            });
+          } else if (stream === "lifecycle") {
+            const phase = data?.phase as string | undefined;
+            if (phase === "end") {
+              // Finalize the streaming message
+              set((state) => {
+                const existing = state.subagentMessages[sessionKey] || [];
+                const updated = existing.map(m => 
+                  m.runId === runId ? { ...m, streaming: false } : m
+                );
+                return {
+                  subagentMessages: {
+                    ...state.subagentMessages,
+                    [sessionKey]: updated,
+                  },
+                };
+              });
+            }
+          }
+        }
 
         // Check if this is a subagent event that should be routed to a column
         const delegatedColumn = sessionKey ? get().getColumnBySubagent(sessionKey) : undefined;
@@ -517,6 +581,52 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
             };
           });
         }
+        break;
+      }
+
+      // Chat events (messages from subagents and other sessions)
+      case "chat": {
+        const sessionKey = payload.sessionKey as string | undefined;
+        const message = payload.message as Record<string, unknown> | undefined;
+        
+        if (!sessionKey || !message) break;
+        
+        // Only capture subagent chat events
+        if (!sessionKey.includes(":subagent:")) break;
+        
+        const chatMsg: ChatMessage = {
+          id: (message.id as string) || makeId(),
+          role: (message.role as ChatMessage["role"]) || "assistant",
+          text: (message.text as string) || (message.content as string) || "",
+          timestamp: typeof message.timestamp === "number" 
+            ? message.timestamp 
+            : typeof message.timestamp === "string"
+              ? new Date(message.timestamp).getTime()
+              : Date.now(),
+          streaming: (message.streaming as boolean) || false,
+          runId: message.runId as string | undefined,
+        };
+        
+        set((state) => {
+          const existing = state.subagentMessages[sessionKey] || [];
+          
+          // If message has an ID and we already have it, update it (for streaming updates)
+          const existingIdx = existing.findIndex(m => m.id === chatMsg.id);
+          let updated: ChatMessage[];
+          if (existingIdx >= 0) {
+            updated = [...existing];
+            updated[existingIdx] = chatMsg;
+          } else {
+            updated = [...existing, chatMsg];
+          }
+          
+          return {
+            subagentMessages: {
+              ...state.subagentMessages,
+              [sessionKey]: updated,
+            },
+          };
+        });
         break;
       }
 
@@ -760,6 +870,44 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     set((state) => ({
       subagentColumnOrder: state.subagentColumnOrder.filter(k => k !== sessionKey),
     }));
+  },
+  
+  // Subagent messaging
+  getSubagentMessages: (sessionKey: string) => {
+    return get().subagentMessages[sessionKey] || [];
+  },
+  
+  sendSubagentMessage: async (sessionKey: string, text: string) => {
+    const { client } = get();
+    if (!client?.connected) {
+      console.error("Gateway not connected");
+      return;
+    }
+    
+    // Add user message to subagent messages immediately
+    const userMsg: ChatMessage = {
+      id: makeId(),
+      role: "user",
+      text,
+      timestamp: Date.now(),
+    };
+    
+    set((state) => ({
+      subagentMessages: {
+        ...state.subagentMessages,
+        [sessionKey]: [...(state.subagentMessages[sessionKey] || []), userMsg],
+      },
+    }));
+    
+    try {
+      // Send via sessions.send to the subagent session
+      await client.request("sessions.send", {
+        sessionKey,
+        message: text,
+      });
+    } catch (err) {
+      console.error(`Failed to send message to subagent ${sessionKey}:`, err);
+    }
   },
 }));
 

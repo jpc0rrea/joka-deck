@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -9,7 +9,24 @@ import styles from "./SubagentColumn.module.css";
 
 // ─── Helpers ───
 
+/**
+ * Normalize a timestamp that might be ms, seconds, or ISO string.
+ */
+function normalizeTimestamp(ts: unknown): number {
+  if (typeof ts === "string") {
+    const parsed = new Date(ts).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  if (typeof ts === "number") {
+    if (ts === 0) return 0;
+    if (ts < 1e12) return ts * 1000;
+    return ts;
+  }
+  return 0;
+}
+
 function formatDuration(ms: number): string {
+  if (!isFinite(ms) || isNaN(ms) || ms < 0) return "—";
   const seconds = Math.floor(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
@@ -115,34 +132,29 @@ export function SubagentColumn({
   const statusColor = getStatusColor(session.status);
   const label = extractLabel(session);
   const isActive = session.active || session.status === "running" || session.status === "streaming";
-  const duration = Date.now() - session.createdAt;
+  const createdMs = normalizeTimestamp(session.createdAt);
+  const duration = createdMs ? Date.now() - createdMs : 0;
+  const [input, setInput] = useState("");
 
-  // Get any messages routed to this subagent from the main store
-  // Subagent events get routed through the gateway event system
-  const agentSessions = useDeckStore((s) => s.sessions);
-  
-  // Find messages for this subagent - check if any column is watching it
-  const watchingColumn = useDeckStore((s) => {
-    for (const [columnId, sess] of Object.entries(s.sessions)) {
-      if (sess.assignedSubagent === session.key) {
-        return columnId;
-      }
-    }
-    return null;
-  });
-
-  // Get messages from the watching column, or show empty
-  const messages: ChatMessage[] = useMemo(() => {
-    if (watchingColumn && agentSessions[watchingColumn]) {
-      // Filter to only delegation-related messages  
-      return agentSessions[watchingColumn].messages.filter(
-        (m) => m.role === "assistant" || m.role === "system"
-      );
-    }
-    return [];
-  }, [watchingColumn, agentSessions]);
+  // Get messages from the subagent message store
+  const messages = useDeckStore((s) => s.subagentMessages[session.key] || []);
+  const sendSubagentMessage = useDeckStore((s) => s.sendSubagentMessage);
 
   const scrollRef = useAutoScroll(messages);
+
+  const handleSend = () => {
+    const text = input.trim();
+    if (!text) return;
+    setInput("");
+    sendSubagentMessage(session.key, text);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <div
@@ -208,18 +220,25 @@ export function SubagentColumn({
         )}
       </div>
 
-      {/* Footer */}
+      {/* Input / Footer */}
       <div className={styles.footer}>
-        <div className={styles.footerContent}>
-          <span className={styles.footerIcon} style={{ color: statusColor }}>◈</span>
-          <span className={styles.footerLabel}>
-            {isActive ? "Working..." : session.status}
-          </span>
-          {session.parentSession && (
-            <span className={styles.footerParent}>
-              ← {session.parentSession.split(":").pop()?.slice(0, 8)}
-            </span>
-          )}
+        <div className={styles.inputRow}>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Message subagent..."
+            className={styles.inputField}
+            rows={1}
+          />
+          <button
+            className={styles.sendBtn}
+            onClick={handleSend}
+            disabled={!input.trim()}
+            style={input.trim() ? { backgroundColor: statusColor, color: "#000" } : undefined}
+          >
+            ↑
+          </button>
         </div>
         {isActive && (
           <div
