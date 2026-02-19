@@ -276,66 +276,59 @@ function SubagentDetailView({
   session: GatewaySession; 
   onBack: () => void;
 }) {
-  const messages = useDeckStore((s) => s.subagentMessages[session.key] || []);
+  const messages = useDeckStore((s) => s.subagentMessages[session.key] ?? []);
   const sendSubagentMessage = useDeckStore((s) => s.sendSubagentMessage);
   const client = useDeckStore((s) => s.client);
   const [input, setInput] = useState("");
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useAutoScroll(messages);
   const isActive = session.active || session.status === "running" || session.status === "streaming";
   const statusColor = getStatusColor(session.status);
   const updatedMs = normalizeTimestamp(session.updatedAt);
   const tokenCount = session.totalTokens || session.usage?.totalTokens || 0;
 
-  // Load session history when detail view opens and there are no messages
+  // Load session history ONCE when detail view opens
   useEffect(() => {
-    // Guard: skip if we already have messages, client isn't ready, or already loading
-    if (messages.length > 0 || loadingHistory) return;
-    if (!client || !client.connected) return;
+    if (historyLoaded) return;
+    setHistoryLoaded(true);
+
+    // Check if we already have messages in store
+    const existing = useDeckStore.getState().subagentMessages[session.key];
+    if (existing && existing.length > 0) return;
+
+    const c = useDeckStore.getState().client;
+    if (!c || !c.connected) return;
 
     let cancelled = false;
-    setLoadingHistory(true);
 
-    (async () => {
-      try {
-        const history = await client.getSessionHistory(session.key);
-        if (cancelled) return;
-        if (!history || history.length === 0) {
-          setLoadingHistory(false);
-          return;
-        }
+    c.getSessionHistory(session.key).then((history) => {
+      if (cancelled || !history || history.length === 0) return;
 
-        // Convert history to ChatMessage[] and populate store
-        const chatMessages: ChatMessage[] = history.map((msg, idx) => ({
-          id: `history-${session.key}-${idx}`,
-          role: (msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant") as ChatMessage["role"],
-          text: msg.text,
-          timestamp: msg.timestamp || updatedMs || Date.now(),
-          streaming: false,
+      const chatMessages: ChatMessage[] = history.map((msg, idx) => ({
+        id: `history-${session.key}-${idx}`,
+        role: (msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant") as ChatMessage["role"],
+        text: msg.text,
+        timestamp: msg.timestamp || updatedMs || Date.now(),
+        streaming: false,
+      }));
+
+      if (!cancelled) {
+        useDeckStore.setState((state) => ({
+          subagentMessages: {
+            ...state.subagentMessages,
+            [session.key]: [
+              ...chatMessages,
+              ...(state.subagentMessages[session.key] || []),
+            ],
+          },
         }));
-
-        if (!cancelled) {
-          useDeckStore.setState((state) => ({
-            subagentMessages: {
-              ...state.subagentMessages,
-              [session.key]: [
-                ...chatMessages,
-                ...(state.subagentMessages[session.key] || []),
-              ],
-            },
-          }));
-          setLoadingHistory(false);
-        }
-      } catch (err) {
-        console.warn("[SubagentDetailView] Failed to load history for", session.key, err);
-        if (!cancelled) {
-          setLoadingHistory(false);
-        }
       }
-    })();
+    }).catch((err) => {
+      console.warn("[SubagentDetailView] Failed to load history:", err);
+    });
 
     return () => { cancelled = true; };
-  }, [session.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session.key, historyLoaded, updatedMs]);
 
   const handleSend = () => {
     const text = input.trim();
@@ -387,7 +380,7 @@ function SubagentDetailView({
 
       {/* Messages */}
       <div ref={scrollRef} className={styles.detailMessages}>
-        {loadingHistory ? (
+        {!historyLoaded ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon} style={{ color: statusColor }}>⟳</div>
             <div className={styles.emptyTitle}>Loading history...</div>
