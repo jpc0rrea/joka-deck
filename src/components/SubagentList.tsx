@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Component, type KeyboardEvent, type ReactNode } from "react";
+import { useState, useMemo, useRef, useEffect, Component, type KeyboardEvent, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -6,6 +6,8 @@ import { useSubagentMonitor, useAutoScroll } from "../hooks";
 import { useDeckStore } from "../lib/store";
 import type { GatewaySession, ChatMessage } from "../types";
 import styles from "./SubagentList.module.css";
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 
 // ─── Error Boundary ───
 
@@ -276,7 +278,7 @@ function SubagentDetailView({
   session: GatewaySession; 
   onBack: () => void;
 }) {
-  const messages = useDeckStore((s) => s.subagentMessages[session.key] ?? []);
+  const messages = useDeckStore((s) => s.subagentMessages[session.key] || EMPTY_MESSAGES);
   const sendSubagentMessage = useDeckStore((s) => s.sendSubagentMessage);
   const client = useDeckStore((s) => s.client);
   const [input, setInput] = useState("");
