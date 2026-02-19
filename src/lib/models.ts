@@ -11,50 +11,27 @@ export interface ModelConfig {
 // Map of model IDs to friendly display names
 export const MODEL_DISPLAY_NAMES: Record<string, string> = {
   // Anthropic Claude
-  "claude-opus-4-6": "Opus 4.6",
-  "claude-opus-4-5": "Opus 4.5",
-  "claude-sonnet-4-5": "Sonnet 4.5",
-  "claude-sonnet-4-0": "Sonnet 4",
-  "claude-sonnet-3-5": "Sonnet 3.5",
-  "claude-haiku-3-5": "Haiku 3.5",
-  "claude-3-5-sonnet": "Sonnet 3.5",
-  "claude-3-opus": "Opus 3",
-  "claude-3-sonnet": "Sonnet 3",
-  "claude-3-haiku": "Haiku 3",
+  "claude-opus-4-6": "Claude Opus 4.6",
+  "claude-opus-4-5": "Claude Opus 4.5",
+  "claude-sonnet-4-5": "Claude Sonnet 4.5",
+  "claude-sonnet-4-0": "Claude Sonnet 4",
+  "claude-haiku-3-5": "Claude Haiku 3.5",
   
   // OpenAI
   "gpt-5.3-codex": "GPT-5.3 Codex",
+  "gpt-5.3": "GPT-5.3",
   "gpt-5.2": "GPT-5.2",
   "gpt-5": "GPT-5",
-  "gpt-4o": "GPT-4o",
-  "gpt-4-turbo": "GPT-4 Turbo",
-  "gpt-4": "GPT-4",
-  "gpt-3.5-turbo": "GPT-3.5",
   "o3": "o3",
-  "o3-mini": "o3 mini",
-  "o1": "o1",
-  "o1-mini": "o1 mini",
-  "o1-preview": "o1 preview",
+  "o3-mini": "o3 Mini",
   
-  // Google
-  "gemini-2.0-flash": "Gemini 2.0 Flash",
-  "gemini-1.5-pro": "Gemini 1.5 Pro",
-  "gemini-1.5-flash": "Gemini 1.5 Flash",
-  
-  // Aliases (anthropic/ prefix)
-  "anthropic/claude-opus-4-6": "Opus 4.6",
-  "anthropic/claude-opus-4-5": "Opus 4.5",
-  "anthropic/claude-sonnet-4-5": "Sonnet 4.5",
-  "anthropic/claude-sonnet-4-0": "Sonnet 4",
-  "anthropic/claude-3-5-sonnet": "Sonnet 3.5",
-  "anthropic/claude-3-opus": "Opus 3",
-  
-  // OpenAI aliases
-  "openai/gpt-4o": "GPT-4o",
-  "openai/gpt-4-turbo": "GPT-4 Turbo",
+  // Aliases with provider prefix
+  "anthropic/claude-opus-4-6": "Claude Opus 4.6",
+  "anthropic/claude-opus-4-5": "Claude Opus 4.5",
+  "anthropic/claude-sonnet-4-5": "Claude Sonnet 4.5",
+  "openai-codex/gpt-5.3-codex": "GPT-5.3 Codex",
+  "openai/gpt-5.3": "GPT-5.3",
   "openai/o3": "o3",
-  "openai/o3-mini": "o3 mini",
-  "openai/o1": "o1",
 };
 
 // Get friendly display name for a model
@@ -72,7 +49,7 @@ export function getModelDisplayName(modelId: string): string {
   
   // Fallback: clean up the model name
   return withoutPrefix
-    .replace(/^claude-/, "")
+    .replace(/^claude-/, "Claude ")
     .replace(/^gpt-/, "GPT-")
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -82,15 +59,15 @@ export function getModelDisplayName(modelId: string): string {
 export function getModelProviderIcon(modelId: string): string {
   const id = modelId.toLowerCase();
   if (id.includes("claude") || id.startsWith("anthropic/")) {
-    return "🟣"; // Anthropic purple
+    return "🟣";
   }
-  if (id.includes("gpt") || id.startsWith("openai/") || id.startsWith("o1") || id.startsWith("o3")) {
-    return "🟢"; // OpenAI green
+  if (id.includes("gpt") || id.startsWith("openai") || id.startsWith("o1") || id.startsWith("o3")) {
+    return "🟢";
   }
   if (id.includes("gemini") || id.startsWith("google/")) {
-    return "🔵"; // Google blue
+    return "🔵";
   }
-  return "⚪"; // Unknown
+  return "⚪";
 }
 
 // Storage key for model preferences
@@ -141,7 +118,7 @@ export function saveModelPreferences(prefs: ModelPreferences): void {
   }
 }
 
-// Get ordered list of enabled models (for dropdowns)
+// Get ordered list of enabled models (for dropdowns) - deduplicates by display name
 export function getOrderedEnabledModels(
   availableModels: string[],
   prefs: ModelPreferences
@@ -159,5 +136,12 @@ export function getOrderedEnabledModels(
     return orderA - orderB;
   });
   
-  return enabled;
+  // Deduplicate by display name (keep the first one in order)
+  const seen = new Set<string>();
+  return enabled.filter((m) => {
+    const display = getModelDisplayName(m);
+    if (seen.has(display)) return false;
+    seen.add(display);
+    return true;
+  });
 }

@@ -255,17 +255,28 @@ export function useAvailableModels() {
 
   const fallbackModels = useMemo(
     () => [
-      "claude-sonnet-4-5",
       "claude-opus-4-6",
       "claude-opus-4-5",
+      "claude-sonnet-4-5",
       "gpt-5.3-codex",
+      "o3",
     ],
     []
   );
 
-  return modelsLoaded && availableModels.length > 0
+  // Deduplicate: strip provider prefix for comparison
+  const models = modelsLoaded && availableModels.length > 0
     ? availableModels
     : fallbackModels;
+  
+  // Deduplicate by base model name (e.g. "anthropic/claude-sonnet-4-5" and "claude-sonnet-4-5" are the same)
+  const seen = new Set<string>();
+  return models.filter((m) => {
+    const base = m.split("/").pop() || m;
+    if (seen.has(base)) return false;
+    seen.add(base);
+    return true;
+  });
 }
 
 /**
