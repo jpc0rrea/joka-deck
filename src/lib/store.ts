@@ -567,33 +567,29 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     const { client } = get();
     if (!client?.connected) return;
     
+    const CORE_MODELS = [
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5",
+      "gpt-5.3-codex",
+      "o3",
+    ];
+    
     try {
       const models = await client.listModels();
-      if (models.length > 0) {
-        set({ availableModels: models, modelsLoaded: true });
-      } else {
-        // Fallback to hardcoded models
-        set({ 
-          availableModels: [
-            "claude-sonnet-4-5",
-            "claude-opus-4-6",
-            "claude-opus-4-5",
-            "gpt-5.3-codex",
-          ],
-          modelsLoaded: true,
+      // Merge gateway models with core models (dedup)
+      const merged = [...models];
+      for (const m of CORE_MODELS) {
+        const base = m.split("/").pop() || m;
+        const exists = merged.some((existing) => {
+          const existingBase = existing.split("/").pop() || existing;
+          return existingBase === base;
         });
+        if (!exists) merged.push(m);
       }
+      set({ availableModels: merged, modelsLoaded: true });
     } catch {
-      // Fallback to hardcoded models
-      set({ 
-        availableModels: [
-          "claude-sonnet-4-5",
-          "claude-opus-4-6",
-          "claude-opus-4-5",
-          "gpt-5.3-codex",
-        ],
-        modelsLoaded: true,
-      });
+      set({ availableModels: CORE_MODELS, modelsLoaded: true });
     }
   },
   

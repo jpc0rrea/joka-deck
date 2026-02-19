@@ -80,8 +80,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   white-space: nowrap;
 }
 
@@ -778,38 +777,46 @@
 }
 
 /* ─── Model Selector ─── */
-.modelSelectorWrapper {
+.modelSubtitle {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
 }
 
-.modelSelectorBtn {
+.modelSubtitleText {
   font-size: 11px;
   font-family: "JetBrains Mono", monospace;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 5px;
-  padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 5px;
+  transition: opacity 0.15s ease;
 }
 
-.modelSelectorBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.9);
+.modelSubtitle:hover .modelSubtitleText {
+  opacity: 0.8 !important;
+}
+
+.modelEditBtn {
+  font-size: 9px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.modelSubtitle:hover .modelEditBtn {
+  opacity: 0.6;
 }
 
 .modelDropdown {
   position: absolute;
   top: 100%;
-  right: 0;
-  min-width: 180px;
-  max-width: 240px;
+  left: 0;
+  min-width: 200px;
+  max-width: 260px;
   background: rgba(20, 20, 25, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 10px;

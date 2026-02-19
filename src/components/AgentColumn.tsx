@@ -267,9 +267,9 @@ function SystemMessage({ message }: { message: ChatMessage }) {
   );
 }
 
-// ─── Model Selector ───
+// ─── Model Subtitle (inline selector) ───
 
-function ModelSelector({
+function ModelSubtitle({
   currentModel,
   agentId,
   accent,
@@ -279,14 +279,14 @@ function ModelSelector({
   accent: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
   const models = useOrderedEnabledModels();
   const updateAgentModel = useDeckStore((s) => s.updateAgentModel);
 
   // Close dropdown on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -298,50 +298,54 @@ function ModelSelector({
 
   const displayModel = currentModel || "default";
   const friendlyName = getModelDisplayName(displayModel);
-  const providerIcon = getModelProviderIcon(displayModel);
 
   return (
-    <div className={styles.modelSelectorWrapper} ref={dropdownRef}>
-      <button
-        className={styles.modelSelectorBtn}
+    <span className={styles.modelSubtitle} ref={wrapperRef}>
+      <span 
+        className={styles.modelSubtitleText}
+        style={{ color: accent, opacity: 0.5 }}
         onClick={() => setIsOpen(!isOpen)}
-        title={`Model: ${displayModel}`}
-        style={{ borderColor: isOpen ? accent : undefined }}
+        title="Click to change model"
       >
-        {providerIcon} {friendlyName}
+        {friendlyName}
+      </span>
+      <button
+        className={styles.modelEditBtn}
+        onClick={() => setIsOpen(!isOpen)}
+        title="Change model"
+        style={{ color: accent }}
+      >
+        ▾
       </button>
 
       {isOpen && (
         <div className={styles.modelDropdown}>
-          <div className={styles.modelDropdownHeader}>Select Model</div>
-          <div className={styles.modelDropdownList}>
-            {models.map((model) => {
-              const isSelected = model === currentModel;
-              const modelDisplayName = getModelDisplayName(model);
-              const modelIcon = getModelProviderIcon(model);
-              return (
-                <button
-                  key={model}
-                  className={`${styles.modelDropdownItem} ${isSelected ? styles.modelDropdownItemSelected : ""}`}
-                  onClick={() => {
-                    updateAgentModel(agentId, model);
-                    setIsOpen(false);
-                  }}
-                >
-                  <span className={styles.modelDropdownIcon}>
-                    {modelIcon}
-                  </span>
-                  <span className={styles.modelDropdownLabel}>{modelDisplayName}</span>
-                  {isSelected && (
-                    <span className={styles.modelDropdownCheck} style={{ color: accent }}>✓</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          {models.map((model) => {
+            const isSelected = model === currentModel;
+            const modelDisplayName = getModelDisplayName(model);
+            const modelIcon = getModelProviderIcon(model);
+            return (
+              <button
+                key={model}
+                className={`${styles.modelDropdownItem} ${isSelected ? styles.modelDropdownItemSelected : ""}`}
+                onClick={() => {
+                  updateAgentModel(agentId, model);
+                  setIsOpen(false);
+                }}
+              >
+                <span className={styles.modelDropdownIcon}>
+                  {modelIcon}
+                </span>
+                <span className={styles.modelDropdownLabel}>{modelDisplayName}</span>
+                {isSelected && (
+                  <span className={styles.modelDropdownCheck} style={{ color: accent }}>✓</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -433,25 +437,17 @@ export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnI
             ) : (
               <>
                 {config.context ? <span>{config.context}</span> : null}
-                {config.model && (
-                  <>
-                    {config.context ? <span className={styles.metaDot}>·</span> : null}
-                    <span style={{ color: config.accent, opacity: 0.5 }}>
-                      {config.model}
-                    </span>
-                  </>
-                )}
+                <ModelSubtitle
+                  currentModel={config.model}
+                  agentId={agentId}
+                  accent={config.accent}
+                />
               </>
             )}
             <FailoverBadge session={session} />
           </div>
         </div>
         <div className={styles.headerActions}>
-          <ModelSelector
-            currentModel={config.model}
-            agentId={agentId}
-            accent={config.accent}
-          />
           <button 
             className={styles.headerBtn} 
             title="Clear history"
