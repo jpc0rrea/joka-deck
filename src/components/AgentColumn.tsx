@@ -11,7 +11,9 @@ import {
   useAvailableSubagents,
   useColumnDelegation,
   useAvailableModels,
+  useOrderedEnabledModels,
 } from "../hooks";
+import { getModelDisplayName, getModelProviderIcon } from "../lib/models";
 import { useDeckStore } from "../lib/store";
 import type { AgentStatus, ChatMessage, AgentSession, GatewaySession } from "../types";
 import styles from "./AgentColumn.module.css";
@@ -278,7 +280,7 @@ function ModelSelector({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const models = useAvailableModels();
+  const models = useOrderedEnabledModels();
   const updateAgentModel = useDeckStore((s) => s.updateAgentModel);
 
   // Close dropdown on click outside
@@ -295,7 +297,8 @@ function ModelSelector({
   }, [isOpen]);
 
   const displayModel = currentModel || "default";
-  const shortModel = displayModel.replace("claude-", "").replace("gpt-", "");
+  const friendlyName = getModelDisplayName(displayModel);
+  const providerIcon = getModelProviderIcon(displayModel);
 
   return (
     <div className={styles.modelSelectorWrapper} ref={dropdownRef}>
@@ -305,30 +308,37 @@ function ModelSelector({
         title={`Model: ${displayModel}`}
         style={{ borderColor: isOpen ? accent : undefined }}
       >
-        🤖 {shortModel}
+        {providerIcon} {friendlyName}
       </button>
 
       {isOpen && (
         <div className={styles.modelDropdown}>
           <div className={styles.modelDropdownHeader}>Select Model</div>
-          {models.map((model) => {
-            const isSelected = model === currentModel;
-            return (
-              <button
-                key={model}
-                className={`${styles.modelDropdownItem} ${isSelected ? styles.modelDropdownItemSelected : ""}`}
-                onClick={() => {
-                  updateAgentModel(agentId, model);
-                  setIsOpen(false);
-                }}
-              >
-                <span className={styles.modelDropdownIcon} style={{ color: isSelected ? accent : undefined }}>
-                  {isSelected ? "●" : "○"}
-                </span>
-                <span className={styles.modelDropdownLabel}>{model}</span>
-              </button>
-            );
-          })}
+          <div className={styles.modelDropdownList}>
+            {models.map((model) => {
+              const isSelected = model === currentModel;
+              const modelDisplayName = getModelDisplayName(model);
+              const modelIcon = getModelProviderIcon(model);
+              return (
+                <button
+                  key={model}
+                  className={`${styles.modelDropdownItem} ${isSelected ? styles.modelDropdownItemSelected : ""}`}
+                  onClick={() => {
+                    updateAgentModel(agentId, model);
+                    setIsOpen(false);
+                  }}
+                >
+                  <span className={styles.modelDropdownIcon}>
+                    {modelIcon}
+                  </span>
+                  <span className={styles.modelDropdownLabel}>{modelDisplayName}</span>
+                  {isSelected && (
+                    <span className={styles.modelDropdownCheck} style={{ color: accent }}>✓</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

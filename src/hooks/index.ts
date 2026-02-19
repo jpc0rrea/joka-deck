@@ -1,6 +1,7 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useDeckStore } from "../lib/store";
 import type { AgentConfig, DeckConfig, GatewaySession } from "../types";
+import { loadModelPreferences, getOrderedEnabledModels } from "../lib/models";
 
 /**
  * Initialize the deck with config. Call once at app root.
@@ -265,6 +266,40 @@ export function useAvailableModels() {
   return modelsLoaded && availableModels.length > 0
     ? availableModels
     : fallbackModels;
+}
+
+/**
+ * Get ordered and enabled models based on user preferences.
+ * Re-reads localStorage on each call to pick up changes from ConfigPanel.
+ */
+export function useOrderedEnabledModels() {
+  const availableModels = useAvailableModels();
+  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // Listen for storage changes (from ConfigPanel saves)
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "openclaw-deck-model-prefs") {
+        setRefreshKey((k) => k + 1);
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    
+    // Also poll periodically for same-tab changes
+    const interval = setInterval(() => {
+      setRefreshKey((k) => k + 1);
+    }, 2000);
+    
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
+  
+  return useMemo(() => {
+    const prefs = loadModelPreferences();
+    return getOrderedEnabledModels(availableModels, prefs);
+  }, [availableModels, refreshKey]);
 }
 
 /**

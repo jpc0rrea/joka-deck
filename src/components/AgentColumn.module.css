@@ -783,37 +783,42 @@
 }
 
 .modelSelectorBtn {
-  font-size: 10px;
+  font-size: 11px;
   font-family: "JetBrains Mono", monospace;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 5px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .modelSelectorBtn:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .modelDropdown {
   position: absolute;
   top: 100%;
   right: 0;
-  min-width: 200px;
-  background: rgba(25, 25, 30, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  margin-top: 4px;
-  z-index: 100;
+  min-width: 180px;
+  max-width: 240px;
+  background: rgba(20, 20, 25, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  margin-top: 6px;
+  z-index: 1000;
   overflow: hidden;
   animation: modelDropdownSlideIn 0.15s ease;
+  backdrop-filter: blur(20px);
 }
 
 @keyframes modelDropdownSlideIn {
@@ -833,8 +838,31 @@
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 10px 12px 6px;
+  padding: 10px 12px 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modelDropdownList {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.modelDropdownList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modelDropdownList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modelDropdownList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.modelDropdownList::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .modelDropdownItem {
@@ -842,12 +870,13 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
-  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
   transition: background 0.1s ease;
@@ -858,18 +887,24 @@
 }
 
 .modelDropdownItemSelected {
-  background: rgba(167, 139, 250, 0.1);
+  background: rgba(167, 139, 250, 0.12);
 }
 
 .modelDropdownItemSelected:hover {
-  background: rgba(167, 139, 250, 0.15);
+  background: rgba(167, 139, 250, 0.18);
 }
 
 .modelDropdownIcon {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.4);
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .modelDropdownLabel {
   flex: 1;
+}
+
+.modelDropdownCheck {
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
 }

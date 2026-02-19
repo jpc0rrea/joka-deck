@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useDeckStats, useSubagentStats } from "../hooks";
 import styles from "./TopBar.module.css";
 
-const TABS = ["All Agents", "Active", "Subagents", "Completed"] as const;
+const TABS = ["All Agents", "Active", "Subagents", "Completed", "Config"] as const;
 
 export function TopBar({
   activeTab,

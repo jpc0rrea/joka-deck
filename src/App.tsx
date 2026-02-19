@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useDeckInit } from "./hooks";
+import { useDeckInit, useSubagentMonitor } from "./hooks";
 import { useDeckStore } from "./lib/store";
 import { AgentColumn } from "./components/AgentColumn";
 import { SubagentColumn } from "./components/SubagentColumn";
@@ -7,6 +7,7 @@ import { TopBar } from "./components/TopBar";
 import { StatusBar } from "./components/StatusBar";
 import { AddAgentModal } from "./components/AddAgentModal";
 import { SubagentList } from "./components/SubagentList";
+import { ConfigPanel } from "./components/ConfigPanel";
 import type { AgentConfig, GatewaySession } from "./types";
 import "./App.css";
 
@@ -105,6 +106,9 @@ export default function App() {
     agents: initialAgents,
   });
 
+  // Poll subagents at App level so they're always visible
+  useSubagentMonitor(5000);
+
   // Cmd+1-9 to focus column inputs
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -134,7 +138,9 @@ export default function App() {
         onAddAgent={() => setShowAddModal(true)}
       />
 
-      {activeTab === "Subagents" ? (
+      {activeTab === "Config" ? (
+        <ConfigPanel />
+      ) : activeTab === "Subagents" ? (
         <SubagentList />
       ) : (
         <div className="deck-columns">
