@@ -101,8 +101,29 @@ export function loadModelPreferences(): ModelPreferences {
   try {
     const stored = localStorage.getItem(MODEL_PREFS_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      return { ...DEFAULT_PREFS, ...parsed };
+      const parsed = JSON.parse(stored) as Partial<ModelPreferences>;
+      
+      // Merge: ensure new default models get added to existing prefs
+      const storedEnabled = new Set(parsed.enabledModels || []);
+      const storedOrder = new Set(parsed.modelOrder || []);
+      
+      // Add any default models not in stored prefs
+      for (const m of DEFAULT_PREFS.enabledModels) {
+        if (!storedEnabled.has(m)) {
+          (parsed.enabledModels || []).push(m);
+        }
+      }
+      for (const m of DEFAULT_PREFS.modelOrder) {
+        if (!storedOrder.has(m)) {
+          (parsed.modelOrder || []).push(m);
+        }
+      }
+      
+      return {
+        enabledModels: parsed.enabledModels || DEFAULT_PREFS.enabledModels,
+        modelOrder: parsed.modelOrder || DEFAULT_PREFS.modelOrder,
+        defaultModel: parsed.defaultModel || DEFAULT_PREFS.defaultModel,
+      };
     }
   } catch (err) {
     console.warn("[Models] Failed to load preferences:", err);
