@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
+import { useAvailableModels } from "../hooks";
 import type { AgentConfig } from "../types";
 import styles from "./AddAgentModal.module.css";
 
@@ -13,11 +14,6 @@ const ACCENTS = [
   "#ef4444", // red
 ];
 
-const MODELS = [
-  "claude-sonnet-4-5",
-  "claude-opus-4-6",
-];
-
 export function AddAgentModal({
   onClose,
   onCreate,
@@ -25,11 +21,12 @@ export function AddAgentModal({
   onClose: () => void;
   onCreate: (agent: AgentConfig) => Promise<void>;
 }) {
+  const models = useAvailableModels();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [accent, setAccent] = useState(ACCENTS[1]);
   const [context, setContext] = useState("");
-  const [model, setModel] = useState(MODELS[0]);
+  const [model, setModel] = useState(models[0] ?? "claude-sonnet-4-5");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,7 +128,7 @@ export function AddAgentModal({
             value={model}
             onChange={(e) => setModel(e.target.value)}
           >
-            {MODELS.map((m) => (
+            {models.map((m) => (
               <option key={m} value={m}>{m}</option>
             ))}
           </select>

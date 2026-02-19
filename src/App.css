@@ -51,3 +51,19 @@ body {
   background: rgba(255, 255, 255, 0.16);
   border-radius: 3px;
 }
+
+/* Subagent separator */
+.subagent-separator {
+  width: 3px;
+  min-width: 3px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(167, 139, 250, 0.3) 20%,
+    rgba(167, 139, 250, 0.4) 50%,
+    rgba(167, 139, 250, 0.3) 80%,
+    transparent 100%
+  );
+  margin: 16px 0;
+  flex-shrink: 0;
+}

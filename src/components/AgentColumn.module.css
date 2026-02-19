@@ -566,3 +566,310 @@
   margin-left: 6px;
   white-space: nowrap;
 }
+
+/* ─── Delegation Badge ─── */
+.delegationBadge {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delegationUnassignBtn {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: none;
+  background: rgba(167, 139, 250, 0.2);
+  color: #a78bfa;
+  cursor: pointer;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.delegationUnassignBtn:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* ─── System Message ─── */
+.systemMessage {
+  display: flex;
+  justify-content: center;
+  padding: 8px 12px;
+  margin: 4px 0;
+}
+
+.systemMessage span {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(167, 139, 250, 0.7);
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+/* ─── Subagent Selector ─── */
+.inputActions {
+  display: flex;
+  padding: 8px 12px 0;
+  gap: 8px;
+}
+
+.subagentSelectorWrapper {
+  position: relative;
+}
+
+.subagentSelectorBtn {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(167, 139, 250, 0.8);
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.subagentSelectorBtn:hover:not(:disabled) {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.subagentSelectorBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.subagentDropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  min-width: 220px;
+  max-width: 300px;
+  background: rgba(30, 30, 35, 0.98);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  margin-bottom: 4px;
+  z-index: 100;
+  overflow: hidden;
+  animation: dropdownSlideIn 0.15s ease;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.subagentDropdownHeader {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.subagentDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.subagentDropdownItem:hover {
+  background: rgba(167, 139, 250, 0.12);
+}
+
+.subagentDropdownIcon {
+  color: #a78bfa;
+  font-size: 10px;
+}
+
+.subagentDropdownLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagentDropdownStatus {
+  font-size: 9px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.subagentDropdownStatus[data-status="running"],
+.subagentDropdownStatus[data-status="streaming"] {
+  background: rgba(167, 139, 250, 0.15);
+  color: #a78bfa;
+}
+
+.subagentDropdownStatus[data-status="thinking"] {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+}
+
+/* ─── Delegation Footer ─── */
+.delegationFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(167, 139, 250, 0.05);
+  border-top: 1px solid rgba(167, 139, 250, 0.1);
+}
+
+.delegationFooterText {
+  font-size: 12px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(167, 139, 250, 0.7);
+}
+
+.delegationStopBtn {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.delegationStopBtn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* ─── Model Selector ─── */
+.modelSelectorWrapper {
+  position: relative;
+}
+
+.modelSelectorBtn {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.modelSelectorBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.modelDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  min-width: 200px;
+  background: rgba(25, 25, 30, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  margin-top: 4px;
+  z-index: 100;
+  overflow: hidden;
+  animation: modelDropdownSlideIn 0.15s ease;
+}
+
+@keyframes modelDropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modelDropdownHeader {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.modelDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  font-family: "JetBrains Mono", monospace;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.modelDropdownItem:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modelDropdownItemSelected {
+  background: rgba(167, 139, 250, 0.1);
+}
+
+.modelDropdownItemSelected:hover {
+  background: rgba(167, 139, 250, 0.15);
+}
+
+.modelDropdownIcon {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.modelDropdownLabel {
+  flex: 1;
+}

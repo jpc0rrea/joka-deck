@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -8,9 +8,12 @@ import {
   useAgentConfig,
   useSendMessage,
   useAutoScroll,
+  useAvailableSubagents,
+  useColumnDelegation,
+  useAvailableModels,
 } from "../hooks";
 import { useDeckStore } from "../lib/store";
-import type { AgentStatus, ChatMessage, AgentSession } from "../types";
+import type { AgentStatus, ChatMessage, AgentSession, GatewaySession } from "../types";
 import styles from "./AgentColumn.module.css";
 
 // ─── Status Indicator ───
@@ -151,6 +154,187 @@ function FailoverBadge({ session }: { session: AgentSession }) {
   );
 }
 
+// ─── Delegation Badge ───
+
+function DelegationBadge({ 
+  mode, 
+  assignedSubagent, 
+  onUnassign 
+}: { 
+  mode: 'chat' | 'delegation';
+  assignedSubagent?: string;
+  onUnassign: () => void;
+}) {
+  if (mode !== 'delegation' || !assignedSubagent) return null;
+  
+  const shortKey = assignedSubagent.split(':').pop()?.slice(0, 8) || assignedSubagent;
+  
+  return (
+    <span className={styles.delegationBadge} title={assignedSubagent}>
+      📡 {shortKey}
+      <button 
+        className={styles.delegationUnassignBtn}
+        onClick={(e) => {
+          e.stopPropagation();
+          onUnassign();
+        }}
+        title="Stop watching"
+      >
+        ×
+      </button>
+    </span>
+  );
+}
+
+// ─── Subagent Selector Dropdown ───
+
+function SubagentSelector({
+  columnId,
+  availableSubagents,
+  onSelect,
+  accent,
+}: {
+  columnId: string;
+  availableSubagents: GatewaySession[];
+  onSelect: (sessionKey: string) => void;
+  accent: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (availableSubagents.length === 0) {
+    return (
+      <button 
+        className={styles.subagentSelectorBtn}
+        disabled
+        title="No active subagents available"
+      >
+        📡 No subagents
+      </button>
+    );
+  }
+
+  return (
+    <div className={styles.subagentSelectorWrapper}>
+      <button 
+        className={styles.subagentSelectorBtn}
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ borderColor: isOpen ? accent : undefined }}
+      >
+        📡 Assign Subagent ({availableSubagents.length})
+      </button>
+      
+      {isOpen && (
+        <div className={styles.subagentDropdown}>
+          <div className={styles.subagentDropdownHeader}>
+            Select a subagent to watch
+          </div>
+          {availableSubagents.map((subagent) => {
+            const shortKey = subagent.key.split(':').pop()?.slice(0, 8) || subagent.key;
+            const label = subagent.label || shortKey;
+            
+            return (
+              <button
+                key={subagent.key}
+                className={styles.subagentDropdownItem}
+                onClick={() => {
+                  onSelect(subagent.key);
+                  setIsOpen(false);
+                }}
+              >
+                <span className={styles.subagentDropdownIcon}>◈</span>
+                <span className={styles.subagentDropdownLabel}>{label}</span>
+                <span className={styles.subagentDropdownStatus} data-status={subagent.status}>
+                  {subagent.status}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── System Message ───
+
+function SystemMessage({ message }: { message: ChatMessage }) {
+  return (
+    <div className={styles.systemMessage}>
+      <span>{message.text}</span>
+    </div>
+  );
+}
+
+// ─── Model Selector ───
+
+function ModelSelector({
+  currentModel,
+  agentId,
+  accent,
+}: {
+  currentModel?: string;
+  agentId: string;
+  accent: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const models = useAvailableModels();
+  const updateAgentModel = useDeckStore((s) => s.updateAgentModel);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  const displayModel = currentModel || "default";
+  const shortModel = displayModel.replace("claude-", "").replace("gpt-", "");
+
+  return (
+    <div className={styles.modelSelectorWrapper} ref={dropdownRef}>
+      <button
+        className={styles.modelSelectorBtn}
+        onClick={() => setIsOpen(!isOpen)}
+        title={`Model: ${displayModel}`}
+        style={{ borderColor: isOpen ? accent : undefined }}
+      >
+        🤖 {shortModel}
+      </button>
+
+      {isOpen && (
+        <div className={styles.modelDropdown}>
+          <div className={styles.modelDropdownHeader}>Select Model</div>
+          {models.map((model) => {
+            const isSelected = model === currentModel;
+            return (
+              <button
+                key={model}
+                className={`${styles.modelDropdownItem} ${isSelected ? styles.modelDropdownItemSelected : ""}`}
+                onClick={() => {
+                  updateAgentModel(agentId, model);
+                  setIsOpen(false);
+                }}
+              >
+                <span className={styles.modelDropdownIcon} style={{ color: isSelected ? accent : undefined }}>
+                  {isSelected ? "●" : "○"}
+                </span>
+                <span className={styles.modelDropdownLabel}>{model}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Column ───
 
 export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnIndex: number }) {
@@ -158,9 +342,14 @@ export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnI
   const config = useAgentConfig(agentId);
   const send = useSendMessage(agentId);
   const deleteAgentOnGateway = useDeckStore((s) => s.deleteAgentOnGateway);
+  const clearMessageHistory = useDeckStore((s) => s.clearMessageHistory);
   const [input, setInput] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const scrollRef = useAutoScroll(session?.messages);
+  
+  // Delegation hooks
+  const { mode, assignedSubagent, assign, unassign } = useColumnDelegation(agentId);
+  const availableSubagents = useAvailableSubagents(agentId);
 
   if (!config || !session) return null;
 
@@ -222,23 +411,43 @@ export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnI
           <div className={styles.headerRow}>
             <span className={styles.agentName}>{config.name}</span>
             <StatusBadge status={session.status} accent={config.accent} />
+            <DelegationBadge 
+              mode={mode} 
+              assignedSubagent={assignedSubagent}
+              onUnassign={unassign}
+            />
           </div>
           <div className={styles.headerMeta}>
-            {config.context ? <span>{config.context}</span> : null}
-            {config.model && (
+            {mode === 'delegation' ? (
+              <span style={{ color: config.accent }}>Watching subagent stream</span>
+            ) : (
               <>
-                {config.context ? <span className={styles.metaDot}>·</span> : null}
-                <span style={{ color: config.accent, opacity: 0.5 }}>
-                  {config.model}
-                </span>
+                {config.context ? <span>{config.context}</span> : null}
+                {config.model && (
+                  <>
+                    {config.context ? <span className={styles.metaDot}>·</span> : null}
+                    <span style={{ color: config.accent, opacity: 0.5 }}>
+                      {config.model}
+                    </span>
+                  </>
+                )}
               </>
             )}
             <FailoverBadge session={session} />
           </div>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.headerBtn} title="Settings">
-            ⚙
+          <ModelSelector
+            currentModel={config.model}
+            agentId={agentId}
+            accent={config.accent}
+          />
+          <button 
+            className={styles.headerBtn} 
+            title="Clear history"
+            onClick={() => clearMessageHistory(agentId)}
+          >
+            🗑
           </button>
           <button
             className={`${styles.deleteBtn} ${confirmDelete ? styles.confirmDelete : ""}`}
@@ -267,12 +476,18 @@ export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnI
             >
               {columnIndex + 1}
             </div>
-            <p>Send a message to start a conversation with {config.name}</p>
+            <p>
+              {mode === 'delegation' 
+                ? 'Waiting for subagent activity...'
+                : `Send a message to start a conversation with ${config.name}`}
+            </p>
           </div>
         )}
         {session.messages.map((msg) =>
           msg.role === "compaction" ? (
             <CompactionDivider key={msg.id} message={msg} />
+          ) : msg.role === "system" ? (
+            <SystemMessage key={msg.id} message={msg} />
           ) : (
             <MessageBubble key={msg.id} message={msg} accent={config.accent} />
           )
@@ -281,31 +496,56 @@ export function AgentColumn({ agentId, columnIndex }: { agentId: string; columnI
 
       {/* Input */}
       <div className={styles.inputArea}>
-        <div className={styles.inputWrapper}>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Message ${config.name}...`}
-            className={styles.input}
-            data-deck-input={columnIndex}
-            autoComplete="off"
-            autoCapitalize="off"
-            rows={4}
-          />
-          <button
-            className={styles.sendBtn}
-            onClick={handleSend}
-            disabled={!input.trim()}
-            style={
-              input.trim()
-                ? { backgroundColor: config.accent, color: "#000" }
-                : undefined
-            }
-          >
-            ↑
-          </button>
-        </div>
+        {mode === 'delegation' ? (
+          <div className={styles.delegationFooter}>
+            <span className={styles.delegationFooterText}>
+              📡 Streaming from subagent
+            </span>
+            <button 
+              className={styles.delegationStopBtn}
+              onClick={unassign}
+              style={{ borderColor: config.accent }}
+            >
+              Stop Watching
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className={styles.inputActions}>
+              <SubagentSelector
+                columnId={agentId}
+                availableSubagents={availableSubagents}
+                onSelect={assign}
+                accent={config.accent}
+              />
+            </div>
+            <div className={styles.inputWrapper}>
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Message ${config.name}...`}
+                className={styles.input}
+                data-deck-input={columnIndex}
+                autoComplete="off"
+                autoCapitalize="off"
+                rows={4}
+              />
+              <button
+                className={styles.sendBtn}
+                onClick={handleSend}
+                disabled={!input.trim()}
+                style={
+                  input.trim()
+                    ? { backgroundColor: config.accent, color: "#000" }
+                    : undefined
+                }
+              >
+                ↑
+              </button>
+            </div>
+          </>
+        )}
         {isActive && (
           <div
             className={styles.streamingBar}

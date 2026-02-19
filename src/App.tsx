@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useDeckInit } from "./hooks";
 import { useDeckStore } from "./lib/store";
 import { AgentColumn } from "./components/AgentColumn";
+import { SubagentColumn } from "./components/SubagentColumn";
 import { TopBar } from "./components/TopBar";
 import { StatusBar } from "./components/StatusBar";
 import { AddAgentModal } from "./components/AddAgentModal";
 import { SubagentList } from "./components/SubagentList";
-import type { AgentConfig } from "./types";
+import type { AgentConfig, GatewaySession } from "./types";
 import "./App.css";
 
 /**
@@ -87,7 +88,14 @@ export default function App() {
     buildDefaultAgents(7)
   );
   const columnOrder = useDeckStore((s) => s.columnOrder);
+  const subagentColumnOrder = useDeckStore((s) => s.subagentColumnOrder);
+  const gatewaySessions = useDeckStore((s) => s.gatewaySessions);
   const createAgentOnGateway = useDeckStore((s) => s.createAgentOnGateway);
+  
+  // Get subagent sessions for rendering columns
+  const subagentSessions = subagentColumnOrder
+    .map(key => gatewaySessions.find(s => s.key === key))
+    .filter((s): s is GatewaySession => s !== undefined);
 
   const { gatewayUrl, token } = getGatewayConfig();
 
@@ -132,6 +140,17 @@ export default function App() {
         <div className="deck-columns">
           {columnOrder.map((agentId, index) => (
             <AgentColumn key={agentId} agentId={agentId} columnIndex={index} />
+          ))}
+          {/* Subagent columns with visual separator */}
+          {subagentSessions.length > 0 && (
+            <div className="subagent-separator" />
+          )}
+          {subagentSessions.map((session, index) => (
+            <SubagentColumn 
+              key={session.key} 
+              session={session} 
+              columnIndex={columnOrder.length + index} 
+            />
           ))}
         </div>
       )}

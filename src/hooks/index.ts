@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
 import { useDeckStore } from "../lib/store";
 import type { AgentConfig, DeckConfig, GatewaySession } from "../types";
 
@@ -235,4 +235,49 @@ export function useColumnDelegation(columnId: string) {
     assign,
     unassign,
   };
+}
+
+/**
+ * Get available models. Fetches from gateway, falls back to hardcoded.
+ */
+export function useAvailableModels() {
+  const availableModels = useDeckStore((s) => s.availableModels);
+  const modelsLoaded = useDeckStore((s) => s.modelsLoaded);
+  const fetchAvailableModels = useDeckStore((s) => s.fetchAvailableModels);
+  const gatewayConnected = useDeckStore((s) => s.gatewayConnected);
+
+  useEffect(() => {
+    if (gatewayConnected && !modelsLoaded) {
+      fetchAvailableModels();
+    }
+  }, [gatewayConnected, modelsLoaded, fetchAvailableModels]);
+
+  const fallbackModels = useMemo(
+    () => [
+      "claude-sonnet-4-5",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "gpt-5.3-codex",
+    ],
+    []
+  );
+
+  return modelsLoaded && availableModels.length > 0
+    ? availableModels
+    : fallbackModels;
+}
+
+/**
+ * Get subagent sessions that should be displayed as columns.
+ */
+export function useSubagentColumns() {
+  const subagentColumnOrder = useDeckStore((s) => s.subagentColumnOrder);
+  const gatewaySessions = useDeckStore((s) => s.gatewaySessions);
+
+  return useMemo(() => {
+    const sessionMap = new Map(gatewaySessions.map((s) => [s.key, s]));
+    return subagentColumnOrder
+      .map((key) => sessionMap.get(key))
+      .filter((s): s is GatewaySession => s != null);
+  }, [subagentColumnOrder, gatewaySessions]);
 }

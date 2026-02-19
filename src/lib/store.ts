@@ -37,6 +37,13 @@ interface DeckStore {
   gatewaySessions: GatewaySession[];
   subagentPollingEnabled: boolean;
   lastSubagentPoll: number | null;
+  
+  // Model selection
+  availableModels: string[];
+  modelsLoaded: boolean;
+  
+  // Subagent columns
+  subagentColumnOrder: string[];
 
   // Actions
   initialize: (config: Partial<DeckConfig>) => void;
@@ -50,7 +57,11 @@ interface DeckStore {
   handleGatewayEvent: (event: GatewayEvent) => void;
   createAgentOnGateway: (agent: AgentConfig) => Promise<void>;
   deleteAgentOnGateway: (agentId: string) => Promise<void>;
+  updateAgentModel: (agentId: string, model: string) => void;
   disconnect: () => void;
+  
+  // Model actions
+  fetchAvailableModels: () => Promise<void>;
   
   // Subagent actions
   refreshGatewaySessions: () => Promise<void>;
@@ -61,6 +72,10 @@ interface DeckStore {
   assignSubagentToColumn: (columnId: string, sessionKey: string) => void;
   unassignSubagentFromColumn: (columnId: string) => void;
   getColumnBySubagent: (sessionKey: string) => string | undefined;
+  
+  // Subagent column actions
+  addSubagentColumn: (sessionKey: string) => void;
+  removeSubagentColumn: (sessionKey: string) => void;
 }
 
 // ─── Helpers ───
@@ -125,6 +140,13 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
   gatewaySessions: [],
   subagentPollingEnabled: true,
   lastSubagentPoll: null,
+  
+  // Model selection
+  availableModels: [],
+  modelsLoaded: false,
+  
+  // Subagent columns
+  subagentColumnOrder: [],
 
   initialize: (partialConfig) => {
     const config = { ...DEFAULT_CONFIG, ...partialConfig };
@@ -158,6 +180,9 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
             sessions[id] = { ...sessions[id], connected: true };
           }
           set({ sessions });
+          
+          // Fetch available models on connection
+          get().fetchAvailableModels();
         }
       },
     });
@@ -197,7 +222,7 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
   reorderColumns: (order) => set({ columnOrder: order }),
 
   sendMessage: async (agentId, text) => {
-    const { client, sessions } = get();
+    const { client, sessions, config } = get();
     if (!client?.connected) {
       console.error("Gateway not connected");
       return;
@@ -213,6 +238,10 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
 
     const session = sessions[agentId];
     if (!session) return;
+    
+    // Get model from agent config
+    const agentConfig = config.agents.find(a => a.id === agentId);
+    const model = agentConfig?.model;
 
     set((state) => ({
       sessions: {
@@ -229,7 +258,7 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
       // All columns route through the default "main" agent on the gateway,
       // using distinct session keys to keep conversations separate.
       const sessionKey = `agent:main:${agentId}`;
-      const { runId } = await client.runAgent("main", text, sessionKey);
+      const { runId } = await client.runAgent("main", text, sessionKey, model);
 
       // Create placeholder assistant message for streaming
       const assistantMsg: ChatMessage = {
@@ -533,15 +562,92 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     set({ gatewayConnected: false, client: null });
   },
   
+  // Model actions
+  fetchAvailableModels: async () => {
+    const { client } = get();
+    if (!client?.connected) return;
+    
+    try {
+      const models = await client.listModels();
+      if (models.length > 0) {
+        set({ availableModels: models, modelsLoaded: true });
+      } else {
+        // Fallback to hardcoded models
+        set({ 
+          availableModels: [
+            "claude-sonnet-4-5",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "gpt-5.3-codex",
+          ],
+          modelsLoaded: true,
+        });
+      }
+    } catch {
+      // Fallback to hardcoded models
+      set({ 
+        availableModels: [
+          "claude-sonnet-4-5",
+          "claude-opus-4-6",
+          "claude-opus-4-5",
+          "gpt-5.3-codex",
+        ],
+        modelsLoaded: true,
+      });
+    }
+  },
+  
+  updateAgentModel: (agentId: string, model: string) => {
+    set((state) => {
+      const agents = state.config.agents.map((a) =>
+        a.id === agentId ? { ...a, model } : a
+      );
+      return { config: { ...state.config, agents } };
+    });
+    
+    // Also update on gateway if connected
+    const { client } = get();
+    if (client?.connected) {
+      client.updateAgent({ id: agentId, model }).catch((err: unknown) => {
+        console.warn("[DeckStore] Failed to update agent model on gateway:", err);
+      });
+    }
+  },
+  
   // Subagent actions
   refreshGatewaySessions: async () => {
     const { client } = get();
     if (!client?.connected) return;
     
     try {
-      const gatewaySessions = await client.listSessions();
+      // Request sessions with message history for subagent columns
+      const gatewaySessions = await client.listSessions(50);
+      
+      // Auto-manage subagent columns
+      const subagentSessions = gatewaySessions.filter(
+        (s) => s.key.includes(":subagent:") || s.parentSession
+      );
+      const activeSubagentKeys = subagentSessions
+        .filter((s) => s.active || s.status === "running" || s.status === "streaming" || s.status === "thinking")
+        .map((s) => s.key);
+      
+      const currentOrder = get().subagentColumnOrder;
+      
+      // Add new active subagents
+      const newOrder = [...currentOrder];
+      for (const key of activeSubagentKeys) {
+        if (!newOrder.includes(key)) {
+          newOrder.push(key);
+        }
+      }
+      
+      // Remove subagents that no longer exist in gateway sessions at all
+      const allSubagentKeys = new Set(subagentSessions.map((s) => s.key));
+      const filteredOrder = newOrder.filter((key) => allSubagentKeys.has(key));
+      
       set({ 
-        gatewaySessions, 
+        gatewaySessions,
+        subagentColumnOrder: filteredOrder,
         lastSubagentPoll: Date.now() 
       });
     } catch (err) {
@@ -640,6 +746,24 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
       }
     }
     return undefined;
+  },
+  
+  // Subagent column actions
+  addSubagentColumn: (sessionKey: string) => {
+    set((state) => {
+      if (state.subagentColumnOrder.includes(sessionKey)) {
+        return state;
+      }
+      return {
+        subagentColumnOrder: [...state.subagentColumnOrder, sessionKey],
+      };
+    });
+  },
+  
+  removeSubagentColumn: (sessionKey: string) => {
+    set((state) => ({
+      subagentColumnOrder: state.subagentColumnOrder.filter(k => k !== sessionKey),
+    }));
   },
 }));
 

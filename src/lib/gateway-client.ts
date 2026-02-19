@@ -148,7 +148,8 @@ export class GatewayClient {
   async runAgent(
     agentId: string,
     message: string,
-    sessionKey?: string
+    sessionKey?: string,
+    model?: string
   ): Promise<{ runId: string; status: string }> {
     const idempotencyKey = `agent-${Date.now()}-${Math.random()
       .toString(36)
@@ -159,6 +160,7 @@ export class GatewayClient {
       message,
       sessionKey,
       idempotencyKey,
+      ...(model && { model }),
     });
 
     return result as { runId: string; status: string };
@@ -217,10 +219,27 @@ export class GatewayClient {
   }
 
   /** List all active sessions on the gateway */
-  async listSessions(): Promise<GatewaySession[]> {
-    const result = await this.request("sessions.list");
+  async listSessions(messageLimit?: number): Promise<GatewaySession[]> {
+    const result = await this.request("sessions.list", {
+      ...(messageLimit && { messageLimit }),
+    });
     const data = result as { sessions?: GatewaySession[] };
     return data.sessions ?? [];
+  }
+
+  /** List available models from the gateway */
+  async listModels(): Promise<string[]> {
+    try {
+      const result = await this.request("models.list");
+      const data = result as { models?: Array<{ id: string } | string> };
+      if (data.models) {
+        return data.models.map((m) => (typeof m === "string" ? m : m.id));
+      }
+      return [];
+    } catch {
+      console.warn("[GatewayClient] models.list not available");
+      return [];
+    }
   }
 
   // ─── Private ───

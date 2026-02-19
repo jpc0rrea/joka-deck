@@ -1,0 +1,383 @@
+/* ─── Subagent Column ─── */
+.column {
+  min-width: 340px;
+  max-width: 380px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(167, 139, 250, 0.15);
+  border-left: 1px solid rgba(167, 139, 250, 0.15);
+  background: rgba(167, 139, 250, 0.03);
+  animation: columnSlideIn 0.4s ease both;
+  position: relative;
+}
+
+.column[data-status="streaming"],
+.column[data-status="running"] {
+  background: rgba(167, 139, 250, 0.05);
+  border-color: rgba(167, 139, 250, 0.25);
+}
+
+.column[data-status="completed"] {
+  background: rgba(52, 211, 153, 0.03);
+  border-color: rgba(52, 211, 153, 0.15);
+}
+
+.column[data-status="error"] {
+  background: rgba(239, 68, 68, 0.03);
+  border-color: rgba(239, 68, 68, 0.15);
+}
+
+@keyframes columnSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Header ─── */
+.header {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(167, 139, 250, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  background: rgba(167, 139, 250, 0.06);
+}
+
+.agentIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.headerInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.agentName {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerMeta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: "JetBrains Mono", monospace;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaDot {
+  opacity: 0.3;
+}
+
+.headerBadge {
+  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 600;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+/* ─── Status ─── */
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.statusDotPulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.statusLabel {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
+}
+
+/* ─── Messages ─── */
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 4px;
+  scroll-behavior: smooth;
+}
+
+.messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.15);
+  border-radius: 2px;
+}
+
+/* ─── Message Bubbles ─── */
+.messageBubble {
+  padding: 2px 10px 4px;
+}
+
+.messageBubble + .messageBubble {
+  margin-top: 12px;
+}
+
+.userMsg {
+  margin-top: 4px;
+}
+
+.assistantMsg {
+  margin-top: 4px;
+}
+
+.roleLabel {
+  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(167, 139, 250, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 1px;
+}
+
+.messageText {
+  font-size: 14px;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 10px;
+  background: rgba(167, 139, 250, 0.04);
+  border: 1px solid rgba(167, 139, 250, 0.1);
+  padding: 4px 6px;
+}
+
+.userMsg .messageText {
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: "JetBrains Mono", monospace;
+  background: rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.assistantMsg .messageText {
+  white-space: normal;
+  line-height: 1.22;
+}
+
+.assistantMsg .messageText :is(h1, h2, h3, h4) {
+  margin: 0.5em 0 0 0;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.assistantMsg .messageText p {
+  margin: 8px 0;
+  line-height: 1.22;
+}
+
+.assistantMsg .messageText ul,
+.assistantMsg .messageText ol {
+  margin: 0.04em 0 0.06em 0.85em;
+  padding: 0;
+}
+
+.assistantMsg .messageText li {
+  margin: 0;
+  line-height: 1.18;
+}
+
+.assistantMsg .messageText > :first-child {
+  margin-top: 0 !important;
+}
+
+.assistantMsg .messageText > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.assistantMsg .messageText code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.9em;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  border-radius: 4px;
+  padding: 0.05em 0.25em;
+}
+
+.assistantMsg .messageText pre {
+  margin: 0.12em 0;
+  padding: 0.24em 0.4em;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.12);
+  overflow-x: auto;
+}
+
+.assistantMsg .messageText pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  border-radius: 1px;
+  opacity: 0.7;
+  animation: cursorBlink 0.8s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ─── System Message ─── */
+.systemMessage {
+  display: flex;
+  justify-content: center;
+  padding: 6px 10px;
+  margin: 2px 0;
+}
+
+.systemMessage span {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(167, 139, 250, 0.6);
+  background: rgba(167, 139, 250, 0.06);
+  border: 1px solid rgba(167, 139, 250, 0.12);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+/* ─── Empty State ─── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 10px;
+  color: rgba(167, 139, 250, 0.3);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.emptyIcon {
+  font-size: 28px;
+  opacity: 0.4;
+}
+
+.sessionKey {
+  font-size: 9px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.15);
+  word-break: break-all;
+  max-width: 250px;
+}
+
+/* ─── Footer ─── */
+.footer {
+  border-top: 1px solid rgba(167, 139, 250, 0.1);
+  flex-shrink: 0;
+  background: rgba(167, 139, 250, 0.04);
+  position: relative;
+}
+
+.footerContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+.footerIcon {
+  font-size: 12px;
+}
+
+.footerLabel {
+  font-size: 11px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.footerParent {
+  font-size: 10px;
+  font-family: "JetBrains Mono", monospace;
+  color: rgba(255, 255, 255, 0.2);
+  margin-left: auto;
+}
+
+/* ─── Streaming indicator bar ─── */
+.streamingBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  opacity: 0.6;
+  animation: streamPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes streamPulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.7; }
+}
