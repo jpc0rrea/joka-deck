@@ -269,11 +269,30 @@ export class GatewayClient {
       const data = result as { messages?: Array<Record<string, unknown>> };
       if (!data.messages) return [];
       
-      return data.messages.map((msg) => ({
-        role: (msg.role as string) || "assistant",
-        text: (msg.text as string) || (msg.content as string) || "",
-        timestamp: (msg.timestamp as number) || undefined,
-      }));
+      return data.messages
+        .map((msg) => {
+          // Extract text from content — can be a string, an array of content blocks, or absent
+          let text = "";
+          if (typeof msg.text === "string") {
+            text = msg.text;
+          } else if (typeof msg.content === "string") {
+            text = msg.content;
+          } else if (Array.isArray(msg.content)) {
+            // Content blocks: [{type: "text", text: "..."}, {type: "toolCall", ...}, ...]
+            text = (msg.content as Array<Record<string, unknown>>)
+              .filter((block) => block.type === "text" && typeof block.text === "string")
+              .map((block) => block.text as string)
+              .join("\n");
+          }
+          
+          return {
+            role: (msg.role as string) || "assistant",
+            text,
+            timestamp: (msg.timestamp as number) || undefined,
+          };
+        })
+        // Filter out empty messages (tool calls, system messages with no text, etc.)
+        .filter((msg) => msg.text.trim().length > 0);
     } catch (err) {
       console.warn("[GatewayClient] sessions.history failed:", err);
       return [];

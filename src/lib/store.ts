@@ -451,6 +451,13 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
           agentId = parts[2] ?? parts[1] ?? "main";
         }
 
+        // For pure subagent sessions (not delegated to a column), the streaming
+        // was already captured into subagentMessages above — don't also route
+        // to appendMessageChunk/setAgentStatus with a bogus agentId like "subagent"
+        if (isSubagentSession && !delegatedColumn) {
+          break;
+        }
+
         // For delegated columns, ensure we have a message placeholder for streaming
         if (delegatedColumn) {
           const session = get().sessions[agentId];
@@ -594,10 +601,17 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         // Only capture subagent chat events
         if (!sessionKey.includes(":subagent:")) break;
         
+        const text = (message.text as string) || (message.content as string) || "";
+        const role = (message.role as ChatMessage["role"]) || "assistant";
+        
+        // Skip empty messages — these are often duplicate streaming events
+        // that the "agent" handler already processes with proper delta accumulation
+        if (!text.trim()) break;
+        
         const chatMsg: ChatMessage = {
           id: (message.id as string) || makeId(),
-          role: (message.role as ChatMessage["role"]) || "assistant",
-          text: (message.text as string) || (message.content as string) || "",
+          role,
+          text,
           timestamp: typeof message.timestamp === "number" 
             ? message.timestamp 
             : typeof message.timestamp === "string"
@@ -610,12 +624,22 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         set((state) => {
           const existing = state.subagentMessages[sessionKey] || [];
           
-          // If message has an ID and we already have it, update it (for streaming updates)
+          // If message has an ID and we already have it, update it
           const existingIdx = existing.findIndex(m => m.id === chatMsg.id);
+          
+          // Also check if there's already a streaming message with the same runId
+          // from the "agent" event handler — avoid duplicating content
+          const hasStreamingForRun = chatMsg.runId && 
+            existing.some(m => m.runId === chatMsg.runId);
+          
           let updated: ChatMessage[];
           if (existingIdx >= 0) {
+            // Update existing message
             updated = [...existing];
             updated[existingIdx] = chatMsg;
+          } else if (hasStreamingForRun && role === "assistant") {
+            // Skip — the "agent" handler is already tracking this assistant message via streaming
+            return {};
           } else {
             updated = [...existing, chatMsg];
           }
