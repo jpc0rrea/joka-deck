@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, Component, type KeyboardEvent, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -6,6 +6,65 @@ import { useSubagentMonitor, useAutoScroll } from "../hooks";
 import { useDeckStore } from "../lib/store";
 import type { GatewaySession, ChatMessage } from "../types";
 import styles from "./SubagentList.module.css";
+
+// ─── Error Boundary ───
+
+interface ErrorBoundaryProps {
+  fallback: ReactNode;
+  onReset?: () => void;
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class SubagentErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[SubagentErrorBoundary] Caught error:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24, textAlign: "center", color: "#ef4444" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>Something went wrong</div>
+          <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
+            {this.state.error?.message || "Unknown error"}
+          </div>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onReset?.();
+            }}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 6,
+              border: "1px solid #374151",
+              background: "#1f2937",
+              color: "#e5e7eb",
+              cursor: "pointer",
+            }}
+          >
+            ← Go Back
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── Helpers ───
 
@@ -230,42 +289,53 @@ function SubagentDetailView({
 
   // Load session history when detail view opens and there are no messages
   useEffect(() => {
-    if (messages.length > 0 || !client?.connected || loadingHistory) return;
+    // Guard: skip if we already have messages, client isn't ready, or already loading
+    if (messages.length > 0 || loadingHistory) return;
+    if (!client || !client.connected) return;
 
     let cancelled = false;
     setLoadingHistory(true);
 
-    client.getSessionHistory(session.key).then((history) => {
-      if (cancelled || history.length === 0) {
-        setLoadingHistory(false);
-        return;
+    (async () => {
+      try {
+        const history = await client.getSessionHistory(session.key);
+        if (cancelled) return;
+        if (!history || history.length === 0) {
+          setLoadingHistory(false);
+          return;
+        }
+
+        // Convert history to ChatMessage[] and populate store
+        const chatMessages: ChatMessage[] = history.map((msg, idx) => ({
+          id: `history-${session.key}-${idx}`,
+          role: (msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant") as ChatMessage["role"],
+          text: msg.text,
+          timestamp: msg.timestamp || updatedMs || Date.now(),
+          streaming: false,
+        }));
+
+        if (!cancelled) {
+          useDeckStore.setState((state) => ({
+            subagentMessages: {
+              ...state.subagentMessages,
+              [session.key]: [
+                ...chatMessages,
+                ...(state.subagentMessages[session.key] || []),
+              ],
+            },
+          }));
+          setLoadingHistory(false);
+        }
+      } catch (err) {
+        console.warn("[SubagentDetailView] Failed to load history for", session.key, err);
+        if (!cancelled) {
+          setLoadingHistory(false);
+        }
       }
-
-      // Convert history to ChatMessage[] and populate store
-      const chatMessages: ChatMessage[] = history.map((msg, idx) => ({
-        id: `history-${session.key}-${idx}`,
-        role: (msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant") as ChatMessage["role"],
-        text: msg.text,
-        timestamp: msg.timestamp || updatedMs || Date.now(),
-        streaming: false,
-      }));
-
-      useDeckStore.setState((state) => ({
-        subagentMessages: {
-          ...state.subagentMessages,
-          [session.key]: [
-            ...chatMessages,
-            ...(state.subagentMessages[session.key] || []),
-          ],
-        },
-      }));
-      setLoadingHistory(false);
-    }).catch(() => {
-      if (!cancelled) setLoadingHistory(false);
-    });
+    })();
 
     return () => { cancelled = true; };
-  }, [session.key, client]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = () => {
     const text = input.trim();
@@ -395,10 +465,15 @@ export function SubagentList() {
     const currentSession = subagents.find(s => s.key === selectedSession.key) || selectedSession;
     return (
       <div className={styles.container}>
-        <SubagentDetailView 
-          session={currentSession} 
-          onBack={() => setSelectedSession(null)} 
-        />
+        <SubagentErrorBoundary
+          fallback={null}
+          onReset={() => setSelectedSession(null)}
+        >
+          <SubagentDetailView 
+            session={currentSession} 
+            onBack={() => setSelectedSession(null)} 
+          />
+        </SubagentErrorBoundary>
       </div>
     );
   }
