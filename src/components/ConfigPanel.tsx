@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   getModelDisplayName,
-  getModelProviderIcon,
   loadModelPreferences,
   saveModelPreferences,
   type ModelPreferences,
 } from "../lib/models";
+import { ProviderIcon } from "./ProviderIcon";
 import { useAvailableModels } from "../hooks";
 import styles from "./ConfigPanel.module.css";
 
@@ -33,12 +33,11 @@ function ModelItem({
   isLast,
 }: ModelItemProps) {
   const displayName = getModelDisplayName(modelId);
-  const providerIcon = getModelProviderIcon(modelId);
 
   return (
     <div className={`${styles.modelItem} ${enabled ? styles.modelEnabled : styles.modelDisabled}`}>
       <div className={styles.modelInfo}>
-        <span className={styles.modelIcon}>{providerIcon}</span>
+        <ProviderIcon modelId={modelId} size={16} />
         <span className={styles.modelName}>{displayName}</span>
         <span className={styles.modelId}>{modelId}</span>
         {isDefault && <span className={styles.defaultBadge}>default</span>}

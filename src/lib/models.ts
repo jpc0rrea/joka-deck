@@ -55,20 +55,26 @@ export function getModelDisplayName(modelId: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Get provider icon/emoji for a model
-export function getModelProviderIcon(modelId: string): string {
+// Get provider key for a model (used for icon rendering)
+export type ProviderKey = "anthropic" | "openai" | "google" | "xai" | "other";
+
+export function getModelProvider(modelId: string): ProviderKey {
   const id = modelId.toLowerCase();
-  if (id.includes("claude") || id.startsWith("anthropic/")) {
-    return "🟣";
-  }
-  if (id.includes("gpt") || id.startsWith("openai") || id.startsWith("o1") || id.startsWith("o3")) {
-    return "🟢";
-  }
-  if (id.includes("gemini") || id.startsWith("google/")) {
-    return "🔵";
-  }
-  return "⚪";
+  if (id.includes("claude") || id.startsWith("anthropic/")) return "anthropic";
+  if (id.includes("gpt") || id.startsWith("openai") || id.startsWith("o1") || id.startsWith("o3")) return "openai";
+  if (id.includes("gemini") || id.startsWith("google/")) return "google";
+  if (id.includes("grok") || id.startsWith("xai/")) return "xai";
+  return "other";
 }
+
+// Provider accent colors
+export const PROVIDER_COLORS: Record<ProviderKey, string> = {
+  anthropic: "#d4a27f",
+  openai: "#10a37f",
+  google: "#4285f4",
+  xai: "#ffffff",
+  other: "#888888",
+};
 
 // Storage key for model preferences
 const MODEL_PREFS_KEY = "openclaw-deck-model-prefs";

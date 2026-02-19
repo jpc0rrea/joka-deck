@@ -13,7 +13,8 @@ import {
   useAvailableModels,
   useOrderedEnabledModels,
 } from "../hooks";
-import { getModelDisplayName, getModelProviderIcon } from "../lib/models";
+import { getModelDisplayName } from "../lib/models";
+import { ProviderIcon } from "./ProviderIcon";
 import { useDeckStore } from "../lib/store";
 import type { AgentStatus, ChatMessage, AgentSession, GatewaySession } from "../types";
 import styles from "./AgentColumn.module.css";
@@ -323,7 +324,6 @@ function ModelSubtitle({
           {models.map((model) => {
             const isSelected = model === currentModel;
             const modelDisplayName = getModelDisplayName(model);
-            const modelIcon = getModelProviderIcon(model);
             return (
               <button
                 key={model}
@@ -333,9 +333,7 @@ function ModelSubtitle({
                   setIsOpen(false);
                 }}
               >
-                <span className={styles.modelDropdownIcon}>
-                  {modelIcon}
-                </span>
+                <ProviderIcon modelId={model} size={14} />
                 <span className={styles.modelDropdownLabel}>{modelDisplayName}</span>
                 {isSelected && (
                   <span className={styles.modelDropdownCheck} style={{ color: accent }}>✓</span>
