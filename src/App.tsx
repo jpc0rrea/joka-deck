@@ -61,11 +61,19 @@ function getGatewayConfig() {
     ? `wss://${window.location.hostname.replace(':8443', '')}`
     : null;
   
+  // Build dynamic default: use the page's hostname so remote access (Tailscale / LAN IP) works
+  const dynamicDefault = (() => {
+    const host = window.location.hostname;
+    // When accessed via localhost, keep 127.0.0.1 for reliability
+    const wsHost = host === "localhost" ? "127.0.0.1" : host;
+    return `ws://${wsHost}:18789`;
+  })();
+
   let gatewayUrl =
     params.get("gateway") ||
     import.meta.env.VITE_GATEWAY_URL ||
     tailscaleGateway ||
-    "ws://127.0.0.1:18789";
+    dynamicDefault;
 
   // Resolve relative paths (e.g. "/ws") to full WebSocket URLs
   if (gatewayUrl.startsWith("/")) {

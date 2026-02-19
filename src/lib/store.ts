@@ -19,8 +19,16 @@ const STORAGE_KEY = "openclaw-deck-state";
 
 // ─── Default Config ───
 
+// Dynamic default: use the browser's hostname so remote access (Tailscale / LAN) works
+const DEFAULT_GATEWAY_URL = (() => {
+  if (typeof window === "undefined") return "ws://127.0.0.1:18789";
+  const host = window.location.hostname;
+  const wsHost = host === "localhost" ? "127.0.0.1" : host;
+  return `ws://${wsHost}:18789`;
+})();
+
 const DEFAULT_CONFIG: DeckConfig = {
-  gatewayUrl: "ws://127.0.0.1:18789",
+  gatewayUrl: DEFAULT_GATEWAY_URL,
   token: undefined,
   agents: [],
 };
