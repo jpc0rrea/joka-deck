@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { useDeckStore } from "../lib/store";
 import type { AgentConfig, DeckConfig, GatewaySession } from "../types";
 
