@@ -219,10 +219,8 @@ export class GatewayClient {
   }
 
   /** List all active sessions on the gateway */
-  async listSessions(messageLimit?: number): Promise<GatewaySession[]> {
-    const result = await this.request("sessions.list", {
-      ...(messageLimit && { messageLimit }),
-    });
+  async listSessions(): Promise<GatewaySession[]> {
+    const result = await this.request("sessions.list");
     const data = result as { sessions?: GatewaySession[] };
     return data.sessions ?? [];
   }

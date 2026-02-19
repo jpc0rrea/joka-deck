@@ -616,8 +616,8 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     if (!client?.connected) return;
     
     try {
-      // Request sessions with message history for subagent columns
-      const gatewaySessions = await client.listSessions(50);
+      // Request sessions (no params - gateway doesn't support messageLimit)
+      const gatewaySessions = await client.listSessions();
       
       // Auto-manage subagent columns
       const subagentSessions = gatewaySessions.filter(
