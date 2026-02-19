@@ -25,16 +25,17 @@ function normalizeTimestamp(ts: unknown): number {
   return 0;
 }
 
-function formatDuration(ms: number): string {
-  if (!isFinite(ms) || isNaN(ms) || ms < 0) return "—";
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${secs}s`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
+function formatTime(timestamp: number): string {
+  const ms = normalizeTimestamp(timestamp);
+  if (!ms) return "--:--:--";
+  const date = new Date(ms);
+  if (isNaN(date.getTime())) return "--:--:--";
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }
 
 function extractLabel(session: GatewaySession): string {
@@ -132,8 +133,8 @@ export function SubagentColumn({
   const statusColor = getStatusColor(session.status);
   const label = extractLabel(session);
   const isActive = session.active || session.status === "running" || session.status === "streaming";
-  const createdMs = normalizeTimestamp(session.createdAt);
-  const duration = createdMs ? Date.now() - createdMs : 0;
+  const updatedMs = normalizeTimestamp(session.updatedAt);
+  const tokenCount = session.totalTokens || session.usage?.totalTokens || 0;
   const [input, setInput] = useState("");
 
   // Get messages from the subagent message store
@@ -185,11 +186,11 @@ export function SubagentColumn({
               </span>
             )}
             <span className={styles.metaDot}>·</span>
-            <span>⏱ {formatDuration(duration)}</span>
-            {session.usage && (
+            <span>🕐 {updatedMs ? formatTime(updatedMs) : "—"}</span>
+            {tokenCount > 0 && (
               <>
                 <span className={styles.metaDot}>·</span>
-                <span>📊 {session.usage.totalTokens.toLocaleString()} tok</span>
+                <span>📊 {tokenCount.toLocaleString()} tok</span>
               </>
             )}
           </div>

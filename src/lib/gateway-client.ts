@@ -221,8 +221,63 @@ export class GatewayClient {
   /** List all active sessions on the gateway */
   async listSessions(): Promise<GatewaySession[]> {
     const result = await this.request("sessions.list");
-    const data = result as { sessions?: GatewaySession[] };
-    return data.sessions ?? [];
+    const data = result as { sessions?: Record<string, unknown>[] };
+    const rawSessions = data.sessions ?? [];
+    
+    return rawSessions.map((raw): GatewaySession => {
+      const key = (raw.key as string) || "";
+      const updatedAt = (raw.updatedAt as number) || 0;
+      const totalTokens = (raw.totalTokens as number) || 0;
+      const contextTokens = (raw.contextTokens as number) || 0;
+      
+      // Derive status: if abortedLastRun → error, otherwise idle (gateway doesn't send explicit status)
+      let status: GatewaySession["status"] = "idle";
+      if (raw.abortedLastRun) status = "error";
+      
+      // Derive agentId from key (e.g. "agent:main:subagent:uuid" → "main")
+      const parts = key.split(":");
+      const agentId = parts[1] || "main";
+      
+      return {
+        key,
+        agentId,
+        label: (raw.label as string) || undefined,
+        displayName: (raw.displayName as string) || undefined,
+        active: false, // gateway doesn't send this; we infer from events
+        updatedAt,
+        kind: (raw.kind as string) || undefined,
+        channel: (raw.channel as string) || undefined,
+        lastChannel: (raw.lastChannel as string) || undefined,
+        deliveryContext: (raw.deliveryContext as string) || undefined,
+        sessionId: (raw.sessionId as string) || undefined,
+        status,
+        contextTokens,
+        totalTokens,
+        model: (raw.model as string) || undefined,
+        abortedLastRun: (raw.abortedLastRun as boolean) || false,
+        transcriptPath: (raw.transcriptPath as string) || undefined,
+        messages: (raw.messages as number) || undefined,
+        usage: totalTokens ? { inputTokens: 0, outputTokens: 0, totalTokens } : undefined,
+      };
+    });
+  }
+
+  /** Get session history (transcript) from the gateway */
+  async getSessionHistory(sessionKey: string): Promise<Array<{ role: string; text: string; timestamp?: number }>> {
+    try {
+      const result = await this.request("sessions.history", { sessionKey });
+      const data = result as { messages?: Array<Record<string, unknown>> };
+      if (!data.messages) return [];
+      
+      return data.messages.map((msg) => ({
+        role: (msg.role as string) || "assistant",
+        text: (msg.text as string) || (msg.content as string) || "",
+        timestamp: (msg.timestamp as number) || undefined,
+      }));
+    } catch (err) {
+      console.warn("[GatewayClient] sessions.history failed:", err);
+      return [];
+    }
   }
 
   /** List available models from the gateway */

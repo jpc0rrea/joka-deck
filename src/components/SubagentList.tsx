@@ -99,9 +99,9 @@ function SessionCard({
 }) {
   const isActive = session.active || session.status === "running" || session.status === "streaming";
   const statusColor = getStatusColor(session.status);
-  const createdMs = normalizeTimestamp(session.createdAt);
-  const duration = createdMs ? Date.now() - createdMs : 0;
+  const updatedMs = normalizeTimestamp(session.updatedAt);
   const messageCount = useDeckStore((s) => (s.subagentMessages[session.key] || []).length);
+  const gatewayMsgCount = session.messages || 0;
 
   let cardClass = styles.sessionCard;
   if (session.status === "streaming") cardClass += ` ${styles.sessionCardStreaming}`;
@@ -135,14 +135,13 @@ function SessionCard({
       </div>
 
       <div className={styles.sessionMeta}>
-        <span>⏱ {formatDuration(duration)}</span>
         {session.model && <span>🤖 {session.model}</span>}
-        {session.usage && (
-          <span>📊 {session.usage.totalTokens.toLocaleString()} tokens</span>
+        {(session.totalTokens || session.usage) && (
+          <span>📊 {(session.totalTokens || session.usage?.totalTokens || 0).toLocaleString()} tokens</span>
         )}
-        <span>🕐 {formatTime(session.lastActivityAt)}</span>
-        {messageCount > 0 && (
-          <span>💬 {messageCount} msgs</span>
+        <span>🕐 {updatedMs ? formatTime(updatedMs) : "—"}</span>
+        {(messageCount > 0 || gatewayMsgCount > 0) && (
+          <span>💬 {messageCount || gatewayMsgCount} msgs</span>
         )}
       </div>
     </div>
@@ -220,12 +219,53 @@ function SubagentDetailView({
 }) {
   const messages = useDeckStore((s) => s.subagentMessages[session.key] || []);
   const sendSubagentMessage = useDeckStore((s) => s.sendSubagentMessage);
+  const client = useDeckStore((s) => s.client);
   const [input, setInput] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const scrollRef = useAutoScroll(messages);
   const isActive = session.active || session.status === "running" || session.status === "streaming";
   const statusColor = getStatusColor(session.status);
-  const createdMs = normalizeTimestamp(session.createdAt);
-  const duration = createdMs ? Date.now() - createdMs : 0;
+  const updatedMs = normalizeTimestamp(session.updatedAt);
+  const tokenCount = session.totalTokens || session.usage?.totalTokens || 0;
+
+  // Load session history when detail view opens and there are no messages
+  useEffect(() => {
+    if (messages.length > 0 || !client?.connected || loadingHistory) return;
+
+    let cancelled = false;
+    setLoadingHistory(true);
+
+    client.getSessionHistory(session.key).then((history) => {
+      if (cancelled || history.length === 0) {
+        setLoadingHistory(false);
+        return;
+      }
+
+      // Convert history to ChatMessage[] and populate store
+      const chatMessages: ChatMessage[] = history.map((msg, idx) => ({
+        id: `history-${session.key}-${idx}`,
+        role: (msg.role === "user" ? "user" : msg.role === "system" ? "system" : "assistant") as ChatMessage["role"],
+        text: msg.text,
+        timestamp: msg.timestamp || updatedMs || Date.now(),
+        streaming: false,
+      }));
+
+      useDeckStore.setState((state) => ({
+        subagentMessages: {
+          ...state.subagentMessages,
+          [session.key]: [
+            ...chatMessages,
+            ...(state.subagentMessages[session.key] || []),
+          ],
+        },
+      }));
+      setLoadingHistory(false);
+    }).catch(() => {
+      if (!cancelled) setLoadingHistory(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [session.key, client]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = () => {
     const text = input.trim();
@@ -266,18 +306,23 @@ function SubagentDetailView({
             </div>
           </div>
           <div className={styles.detailMeta}>
-            <span>⏱ {formatDuration(duration)}</span>
             {session.model && <span>🤖 {session.model}</span>}
-            {session.usage && (
-              <span>📊 {session.usage.totalTokens.toLocaleString()} tokens</span>
+            {tokenCount > 0 && (
+              <span>📊 {tokenCount.toLocaleString()} tokens</span>
             )}
+            {updatedMs > 0 && <span>🕐 {formatTime(updatedMs)}</span>}
           </div>
         </div>
       </div>
 
       {/* Messages */}
       <div ref={scrollRef} className={styles.detailMessages}>
-        {messages.length === 0 ? (
+        {loadingHistory ? (
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon} style={{ color: statusColor }}>⟳</div>
+            <div className={styles.emptyTitle}>Loading history...</div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon} style={{ color: statusColor }}>◈</div>
             <div className={styles.emptyTitle}>

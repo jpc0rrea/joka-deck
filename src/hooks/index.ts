@@ -138,8 +138,8 @@ export function useSubagentMonitor(intervalMs: number = 5000) {
     }
     
     // Sort by activity (most recent first)
-    subagents.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
-    mainSessions.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    subagents.sort((a, b) => b.updatedAt - a.updatedAt);
+    mainSessions.sort((a, b) => b.updatedAt - a.updatedAt);
     
     return {
       subagents,
@@ -206,7 +206,7 @@ export function useAvailableSubagents(currentColumnId: string) {
     });
     
     // Sort by activity (most recent first)
-    subagents.sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    subagents.sort((a, b) => b.updatedAt - a.updatedAt);
     
     return subagents;
   }, [gatewaySessions, sessions, currentColumnId]);

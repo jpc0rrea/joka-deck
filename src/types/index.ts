@@ -144,18 +144,38 @@ export interface GatewaySession {
   agentId: string;
   /** Session label (if any) */
   label?: string;
+  /** Display name from gateway */
+  displayName?: string;
   /** Whether session is currently active */
   active: boolean;
-  /** Creation timestamp */
-  createdAt: number;
-  /** Last activity timestamp */
-  lastActivityAt: number;
+  /** Last update / activity timestamp (epoch ms from gateway) */
+  updatedAt: number;
+  /** Session kind (e.g., "subagent") */
+  kind?: string;
+  /** Channel info */
+  channel?: string;
+  /** Last channel used */
+  lastChannel?: string;
+  /** Delivery context */
+  deliveryContext?: string;
+  /** Gateway session ID */
+  sessionId?: string;
   /** Parent session key (for subagents) */
   parentSession?: string;
   /** Current status */
   status: "idle" | "running" | "thinking" | "streaming" | "completed" | "error";
   /** Token usage */
   usage?: SessionUsage;
+  /** Context tokens */
+  contextTokens?: number;
+  /** Total tokens */
+  totalTokens?: number;
   /** Model being used */
   model?: string;
+  /** Whether last run was aborted */
+  abortedLastRun?: boolean;
+  /** Transcript path */
+  transcriptPath?: string;
+  /** Message count from gateway */
+  messages?: number;
 }
